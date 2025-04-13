@@ -15,10 +15,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {useRouter} from 'next/navigation';
+import {toast} from "@/hooks/use-toast"
 
 export default function Home() {
   const [generatedRecipe, setGeneratedRecipe] = useState<string | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<string[]>([]);
+  const [isRecipeSaved, setIsRecipeSaved] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -37,7 +39,17 @@ export default function Home() {
   const saveRecipe = () => {
     if (generatedRecipe) {
       setSavedRecipes([...savedRecipes, generatedRecipe]);
+      setIsRecipeSaved(true);
+      toast({
+        title: "Recipe saved!",
+        description: "This recipe has been saved to your past recipes.",
+      })
     }
+  };
+
+  const discardRecipe = () => {
+    setGeneratedRecipe(null);
+    setIsRecipeSaved(false);
   };
 
   const handleRowClick = (recipe: string) => {
@@ -61,7 +73,14 @@ export default function Home() {
             <div className="mt-4">
               <h2 className="text-xl font-semibold mb-2">Generated Recipe:</h2>
               <p className="whitespace-pre-line">{generatedRecipe}</p>
-              <Button onClick={saveRecipe}>Save Recipe</Button>
+              <div className="flex gap-2">
+                <Button onClick={saveRecipe} disabled={isRecipeSaved}>
+                  {isRecipeSaved ? 'Recipe Saved!' : 'Save Recipe'}
+                </Button>
+                <Button variant="destructive" onClick={discardRecipe}>
+                  Discard Recipe
+                </Button>
+              </div>
             </div>
           )}
         </TabsContent>
@@ -71,7 +90,14 @@ export default function Home() {
             <div className="mt-4">
               <h2 className="text-xl font-semibold mb-2">Improved Recipe:</h2>
               <p className="whitespace-pre-line">{generatedRecipe}</p>
-              <Button onClick={saveRecipe}>Save Recipe</Button>
+              <div className="flex gap-2">
+                <Button onClick={saveRecipe} disabled={isRecipeSaved}>
+                  {isRecipeSaved ? 'Recipe Saved!' : 'Save Recipe'}
+                </Button>
+                <Button variant="destructive" onClick={discardRecipe}>
+                  Discard Recipe
+                </Button>
+              </div>
             </div>
           )}
         </TabsContent>
