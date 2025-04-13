@@ -10,10 +10,18 @@ export default function RecipePage() {
     return <div>No recipe content found.</div>;
   }
 
+  let decodedContent;
+  try {
+    decodedContent = decodeURIComponent(content);
+  } catch (e) {
+    decodedContent = 'Error decoding recipe content.';
+  }
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Recipe Details</h1>
-      <div className="whitespace-pre-line">{decodeURIComponent(content)}</div>
+      <div className="whitespace-pre-line">{decodedContent}</div>
     </div>
   );
 }
+
