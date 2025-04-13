@@ -11,6 +11,10 @@ export function Navbar() {
     setIsLoggedIn(true);
   };
 
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+  };
+
   return (
     <nav className="bg-secondary p-4 flex justify-between items-center">
       <Link href="/" className="text-xl font-bold">
@@ -21,9 +25,14 @@ export function Navbar() {
           Home
         </Link>
         {isLoggedIn && (
-          <Link href="/account" className="hover:underline">
-            Account
-          </Link>
+          <>
+            <Link href="/account" className="hover:underline">
+              Account
+            </Link>
+            <Button onClick={handleLogout} variant="outline">
+              Log Out
+            </Button>
+          </>
         )}
         {!isLoggedIn && (
           <Button onClick={handleLogin} variant="outline">
