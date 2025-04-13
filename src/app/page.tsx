@@ -52,6 +52,11 @@ export default function Home() {
     setIsRecipeSaved(false);
   };
 
+  const handleTabChange = (value: string) => {
+    setGeneratedRecipe(null);
+    setIsRecipeSaved(false);
+  };
+
   const handleRowClick = (recipe: string) => {
     // Navigate to a new page with the recipe content as a query parameter
     router.push(`/recipe?content=${encodeURIComponent(recipe)}`);
@@ -61,7 +66,7 @@ export default function Home() {
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">BioCraft Studio</h1>
 
-      <Tabs defaultValue="generate">
+      <Tabs defaultValue="generate" onValueChange={handleTabChange}>
         <TabsList className="mb-4">
           <TabsTrigger value="generate">Recipe Generation</TabsTrigger>
           <TabsTrigger value="improve">Recipe Improvement</TabsTrigger>
