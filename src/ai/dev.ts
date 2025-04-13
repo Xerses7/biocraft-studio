@@ -1,1 +1,2 @@
-// Flows will be imported for their side effects in this file.
+import '@/ai/flows/improve-existing-recipe.ts';
+import '@/ai/flows/generate-biotech-recipe.ts';
