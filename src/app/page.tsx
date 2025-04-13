@@ -12,7 +12,7 @@ export default function Home() {
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">BioCraft Studio</h1>
 
-      <Tabs defaultvalue="generate">
+      <Tabs defaultValue="generate">
         <TabsList className="mb-4">
           <TabsTrigger value="generate">Recipe Generation</TabsTrigger>
           <TabsTrigger value="improve">Recipe Improvement</TabsTrigger>
@@ -39,3 +39,4 @@ export default function Home() {
     </div>
   );
 }
+
