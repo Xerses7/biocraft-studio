@@ -16,6 +16,7 @@ export default function Home() {
         <TabsList className="mb-4">
           <TabsTrigger value="generate">Recipe Generation</TabsTrigger>
           <TabsTrigger value="improve">Recipe Improvement</TabsTrigger>
+          <TabsTrigger value="past">Past Recipes</TabsTrigger>
         </TabsList>
         <TabsContent value="generate">
           <RecipeGenerator setGeneratedRecipe={setGeneratedRecipe} />
@@ -35,8 +36,13 @@ export default function Home() {
             </div>
           )}
         </TabsContent>
+        <TabsContent value="past">
+          <div>
+            <h2 className="text-xl font-semibold mb-2">Past Recipes</h2>
+            <p>This tab will display a list of saved recipes in future iterations.</p>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
-
