@@ -1,4 +1,3 @@
-// file: src/ai/flows/generate-biotech-recipe.ts
 'use server';
 /**
  * @fileOverview Generates biotech recipes based on user-specified ingredients and desired outcomes.
@@ -18,7 +17,7 @@ const GenerateBiotechRecipeInputSchema = z.object({
 export type GenerateBiotechRecipeInput = z.infer<typeof GenerateBiotechRecipeInputSchema>;
 
 const GenerateBiotechRecipeOutputSchema = z.object({
-  recipe: z.string().describe('The generated biotech recipe.'),
+  recipe: z.string().describe('The generated biotech recipe in JSON format.'),
 });
 export type GenerateBiotechRecipeOutput = z.infer<typeof GenerateBiotechRecipeOutputSchema>;
 
@@ -36,12 +35,14 @@ const generateBiotechRecipePrompt = ai.definePrompt({
   },
   output: {
     schema: z.object({
-      recipe: z.string().describe('The generated biotech recipe.'),
+      recipe: z.string().describe('The generated biotech recipe in JSON format. The keys should represent the recipe section name, and the values the relative content.'),
     }),
   },
   prompt: `You are an expert in biotechnology and recipe generation.
 
   Based on the provided ingredients and desired outcome, generate a novel and detailed biotech recipe.
+  Return the recipe as a JSON object. The keys should represent the recipe section name, and the values the relative content.
+  Ensure the JSON is valid and can be parsed without errors.
 
   Ingredients: {{{ingredients}}}
   Desired Outcome: {{{desiredOutcome}}}

@@ -17,7 +17,7 @@ const ImproveExistingRecipeInputSchema = z.object({
 export type ImproveExistingRecipeInput = z.infer<typeof ImproveExistingRecipeInputSchema>;
 
 const ImproveExistingRecipeOutputSchema = z.object({
-  improvedRecipe: z.string().describe('The improved biotech recipe with suggested changes.'),
+  improvedRecipe: z.string().describe('The improved biotech recipe with suggested changes in JSON format.'),
   explanation: z.string().describe('An explanation of the changes made and why they were suggested.'),
 });
 export type ImproveExistingRecipeOutput = z.infer<typeof ImproveExistingRecipeOutputSchema>;
@@ -36,7 +36,7 @@ const prompt = ai.definePrompt({
   },
   output: {
     schema: z.object({
-      improvedRecipe: z.string().describe('The improved biotech recipe with suggested changes.'),
+      improvedRecipe: z.string().describe('The improved biotech recipe with suggested changes in JSON format. The keys should represent the recipe section name, and the values the relative content.'),
       explanation: z.string().describe('An explanation of the changes made and why they were suggested.'),
     }),
   },
@@ -44,6 +44,8 @@ const prompt = ai.definePrompt({
 
 You will analyze the provided existing recipe and suggest improvements to achieve the desired outcomes.
 Explain the reasoning behind each suggested change.
+Return the improved recipe as a JSON object. The keys should represent the recipe section name, and the values the relative content.
+Ensure the JSON is valid and can be parsed without errors.
 
 Existing Recipe:
 {{{existingRecipe}}}

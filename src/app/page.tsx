@@ -18,8 +18,8 @@ import {useRouter} from 'next/navigation';
 import {toast} from "@/hooks/use-toast"
 
 export default function Home() {
-  const [generatedRecipe, setGeneratedRecipe] = useState<string | null>(null);
-  const [savedRecipes, setSavedRecipes] = useState<string[]>([]);
+  const [generatedRecipe, setGeneratedRecipe] = useState<any | null>(null);
+  const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
   const [isRecipeSaved, setIsRecipeSaved] = useState(false);
   const router = useRouter();
 
@@ -57,9 +57,37 @@ export default function Home() {
     setIsRecipeSaved(false);
   };
 
-  const handleRowClick = (recipe: string) => {
+  const handleRowClick = (recipe: any) => {
     // Navigate to a new page with the recipe content as a query parameter
-    router.push(`/recipe?content=${encodeURIComponent(recipe)}`);
+    router.push(`/recipe?content=${encodeURIComponent(JSON.stringify(recipe))}`);
+  };
+
+  const renderRecipe = (recipe: any) => {
+    if (!recipe) {
+      return <p>No recipe generated.</p>;
+    }
+
+    try {
+      const recipeData = typeof recipe === 'string' ? JSON.parse(recipe) : recipe;
+
+      if (typeof recipeData === 'object' && recipeData !== null) {
+        return (
+          <div>
+            {Object.entries(recipeData).map(([section, content]) => (
+              <div key={section} className="mb-4">
+                <h3 className="text-lg font-semibold">{section}</h3>
+                <p className="whitespace-pre-line">{content}</p>
+              </div>
+            ))}
+          </div>
+        );
+      } else {
+        return <p>Invalid recipe format.</p>;
+      }
+    } catch (error) {
+      console.error("Error parsing recipe JSON:", error);
+      return <p>Error decoding recipe content.</p>;
+    }
   };
 
   return (
@@ -77,7 +105,7 @@ export default function Home() {
           {generatedRecipe && (
             <div className="mt-4">
               <h2 className="text-xl font-semibold mb-2">Generated Recipe:</h2>
-              <div className="whitespace-pre-line" dangerouslySetInnerHTML={{ __html: generatedRecipe }} />
+              <div>{renderRecipe(generatedRecipe)}</div>
               <div className="flex gap-2">
                 <Button onClick={saveRecipe} disabled={isRecipeSaved}>
                   {isRecipeSaved ? 'Recipe Saved!' : 'Save Recipe'}
@@ -94,7 +122,7 @@ export default function Home() {
           {generatedRecipe && (
             <div className="mt-4">
               <h2 className="text-xl font-semibold mb-2">Improved Recipe:</h2>
-              <div className="whitespace-pre-line" dangerouslySetInnerHTML={{ __html: generatedRecipe }} />
+              <div>{renderRecipe(generatedRecipe)}</div>
               <div className="flex gap-2">
                 <Button onClick={saveRecipe} disabled={isRecipeSaved}>
                   {isRecipeSaved ? 'Recipe Saved!' : 'Save Recipe'}
@@ -121,7 +149,7 @@ export default function Home() {
                     {savedRecipes.map((recipe, index) => (
                       <TableRow key={index} onClick={() => handleRowClick(recipe)} className="cursor-pointer hover:bg-secondary">
                         <TableCell>
-                          {recipe.substring(0, 50)}...
+                          {typeof recipe === 'string' ? recipe.substring(0, 50) + "..." : 'JSON Recipe'}
                         </TableCell>
                       </TableRow>
                     ))}
