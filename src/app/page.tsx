@@ -77,7 +77,7 @@ export default function Home() {
           {generatedRecipe && (
             <div className="mt-4">
               <h2 className="text-xl font-semibold mb-2">Generated Recipe:</h2>
-              <p className="whitespace-pre-line">{generatedRecipe}</p>
+              <div className="whitespace-pre-line" dangerouslySetInnerHTML={{ __html: generatedRecipe }} />
               <div className="flex gap-2">
                 <Button onClick={saveRecipe} disabled={isRecipeSaved}>
                   {isRecipeSaved ? 'Recipe Saved!' : 'Save Recipe'}
@@ -94,7 +94,7 @@ export default function Home() {
           {generatedRecipe && (
             <div className="mt-4">
               <h2 className="text-xl font-semibold mb-2">Improved Recipe:</h2>
-              <p className="whitespace-pre-line">{generatedRecipe}</p>
+              <div className="whitespace-pre-line" dangerouslySetInnerHTML={{ __html: generatedRecipe }} />
               <div className="flex gap-2">
                 <Button onClick={saveRecipe} disabled={isRecipeSaved}>
                   {isRecipeSaved ? 'Recipe Saved!' : 'Save Recipe'}
