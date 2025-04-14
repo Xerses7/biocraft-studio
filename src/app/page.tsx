@@ -120,7 +120,18 @@ export default function Home() {
       const sanitizedRecipe = typeof recipe === 'string'
         ? recipe.replace(/[\x00-\x1F\x7F-\x9F]/g, (c) => `&#${c.charCodeAt(0)};`)
         : recipe;
-      const recipeData = typeof sanitizedRecipe === 'string' ? JSON.parse(sanitizedRecipe) : sanitizedRecipe;
+
+        let recipeData;
+        if (typeof sanitizedRecipe === 'string') {
+            try {
+                recipeData = JSON.parse(sanitizedRecipe);
+            } catch (e) {
+                console.error("Error parsing recipe JSON:", e);
+                return <p>Error decoding recipe content: Invalid JSON format.</p>;
+            }
+        } else {
+            recipeData = sanitizedRecipe;
+        }
 
       if (typeof recipeData === 'object' && recipeData !== null) {
         return (
@@ -217,4 +228,3 @@ export default function Home() {
     </div>
   );
 }
-
