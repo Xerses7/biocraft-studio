@@ -76,7 +76,7 @@ export default function Home() {
             {Object.entries(recipeData).map(([section, content]) => (
               <div key={section} className="mb-4">
                 <h3 className="text-lg font-semibold">{section}</h3>
-                <p className="whitespace-pre-line">{content}</p>
+                <div dangerouslySetInnerHTML={{ __html: content }} />
               </div>
             ))}
           </div>
