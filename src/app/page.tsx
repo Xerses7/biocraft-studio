@@ -8,7 +8,6 @@ import {Button} from '@/components/ui/button';
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -118,7 +117,10 @@ export default function Home() {
     }
 
     try {
-      const recipeData = typeof recipe === 'string' ? JSON.parse(recipe) : recipe;
+      const sanitizedRecipe = typeof recipe === 'string'
+        ? recipe.replace(/[\x00-\x1F\x7F-\x9F]/g, (c) => `&#${c.charCodeAt(0)};`)
+        : recipe;
+      const recipeData = typeof sanitizedRecipe === 'string' ? JSON.parse(sanitizedRecipe) : sanitizedRecipe;
 
       if (typeof recipeData === 'object' && recipeData !== null) {
         return (
@@ -215,3 +217,4 @@ export default function Home() {
     </div>
   );
 }
+
