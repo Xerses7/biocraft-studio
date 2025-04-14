@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table"
 import {useRouter} from 'next/navigation';
 import {toast} from "@/hooks/use-toast"
+import {decodeHTMLEntities} from "@/lib/utils";
 
 export default function Home() {
   const [generatedRecipe, setGeneratedRecipe] = useState<any | null>(null);
@@ -62,13 +63,13 @@ export default function Home() {
   };
 
   const renderRecipeSection = (section: string, content: any) => {
-    if (typeof content === 'object' && content !== null) {
+    if (Array.isArray(content)) {
       if (section.toLowerCase() === 'materials') {
         return (
           <ul>
-            {Object.entries(content).map(([item, description]) => (
-              <li key={item}>
-                <strong>{item}:</strong> {description}
+            {content.map((material, index) => (
+              <li key={index}>
+                <strong>{material.name}:</strong> {material.quantity} ({material.supplier})
               </li>
             ))}
           </ul>
@@ -76,9 +77,14 @@ export default function Home() {
       } else if (section.toLowerCase() === 'procedure') {
         return (
           <ol>
-            {Object.entries(content).map(([step, instruction]) => (
-              <li key={step}>
-                <strong>{step}:</strong> {instruction}
+            {content.map((procedure, index) => (
+              <li key={index}>
+                <strong>{procedure.title}:</strong>
+                <ol>
+                  {procedure.steps.map((step, stepIndex) => (
+                    <li key={stepIndex}>{step}</li>
+                  ))}
+                </ol>
               </li>
             ))}
           </ol>
@@ -86,27 +92,25 @@ export default function Home() {
       } else if (section.toLowerCase() === 'troubleshooting') {
         return (
           <ul>
-            {Object.entries(content).map(([problem, solution]) => (
-              <li key={problem}>
-                <strong>{problem}:</strong> {solution}
+            {content.map((trouble, index) => (
+              <li key={index}>
+                <strong>{trouble.issue}:</strong> {trouble.solution}
               </li>
             ))}
           </ul>
         );
       } else {
-        // Render other sections as key-value pairs
         return (
           <div>
-            {Object.entries(content).map(([key, value]) => (
-              <p key={key}>
-                <strong>{key}:</strong> {value}
+            {content.map((item, index) => (
+              <p key={index}>
+                <strong>{item.key}:</strong> {item.value}
               </p>
             ))}
           </div>
         );
       }
     } else {
-      // If content is not an object, render it as a paragraph
       return <p>{content}</p>;
     }
   };
@@ -117,22 +121,17 @@ export default function Home() {
     }
 
     try {
-      const sanitizedRecipe = typeof recipe === 'string'
-        ? recipe.replace(/[\x00-\x1F\x7F-\x9F]/g, (c) => `&#${c.charCodeAt(0)};`)
-        : recipe;
-
-        let recipeData;
-        if (typeof sanitizedRecipe === 'string') {
-            try {
-                console.log(sanitizedRecipe);
-                recipeData = JSON.parse(sanitizedRecipe);
-            } catch (e) {
-                console.error("Error parsing recipe JSON:", e);
-                return <p>Error decoding recipe content: Invalid JSON format.</p>;
-            }
-        } else {
-            recipeData = sanitizedRecipe;
+      let recipeData;
+      if (typeof recipe === 'string') {
+        try {
+          recipeData = JSON.parse(decodeHTMLEntities(recipe));
+        } catch (e) {
+          console.error("Error parsing recipe JSON:", e);
+          return <p>Error decoding recipe content: Invalid JSON format.</p>;
         }
+      } else {
+        recipeData = recipe;
+      }
 
       if (typeof recipeData === 'object' && recipeData !== null) {
         return (
@@ -158,7 +157,7 @@ export default function Home() {
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">BioCraft Studio</h1>
 
-      <Tabs defaultValue="generate" >
+      <Tabs defaultValue="generate">
         <TabsList className="mb-4">
           <TabsTrigger value="generate" onClick={discardRecipe}>Recipe Generation</TabsTrigger>
           <TabsTrigger value="improve" onClick={discardRecipe}>Recipe Improvement</TabsTrigger>
