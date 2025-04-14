@@ -36,13 +36,13 @@ const prompt = ai.definePrompt({
   },
   output: {
     schema: z.object({
-      improvedRecipe: z.string().describe('The improved biotech recipe with suggested changes in JSON format.'),
+      improvedRecipe: z.string().describe('The improved biotech recipe with suggested changes in minified JSON format.'),
       explanation: z.string().describe('An explanation of the changes made and why they were suggested.'),
     }),
   },
   prompt: `You are an expert in biotechnology recipe optimization.
   You will analyze the provided existing recipe and suggest improvements to achieve the desired outcomes.
-  Explain the reasoning behind each suggested change.  The output must be a JSON object formatted as follows:
+  Explain the reasoning behind each suggested change.  The output must be a minified JSON object formatted as follows:
   {
     "recipeName": "Recipe Name",
     "description": "A brief description of the recipe.",
@@ -77,7 +77,7 @@ const prompt = ai.definePrompt({
       }
     ]
   }
-  Ensure that the JSON is valid and can be parsed without errors. Provide specific details for each material, step, issue, and note.
+  Ensure that the JSON is valid and can be parsed without errors. Provide specific details for each material, step, issue, and note. The JSON MUST be minified.
   
   Existing Recipe:
   {{{existingRecipe}}}

@@ -35,11 +35,11 @@ const generateBiotechRecipePrompt = ai.definePrompt({
   },
   output: {
     schema: z.object({
-      recipe: z.string().describe('The generated biotech recipe in JSON format following a specific schema.'),
+      recipe: z.string().describe('The generated biotech recipe in minified JSON format following a specific schema.'),
     }),
   },
   prompt: `You are an expert in biotechnology and recipe generation. Based on the provided ingredients and desired outcome, generate a novel and detailed biotech recipe.
-  The output must be a JSON object formatted as follows:
+  The output must be a minified JSON object formatted as follows:
   {
     "recipeName": "Recipe Name",
     "description": "A brief description of the recipe.",
@@ -75,7 +75,7 @@ const generateBiotechRecipePrompt = ai.definePrompt({
     ]
   }
   
-  Ensure that the JSON is valid and can be parsed without errors. Provide specific details for each material, step, issue, and note.
+  Ensure that the JSON is valid and can be parsed without errors. Provide specific details for each material, step, issue, and note.  The JSON MUST be minified.
   
   Ingredients: {{{ingredients}}}
   Desired Outcome: {{{desiredOutcome}}}
