@@ -124,6 +124,7 @@ export default function Home() {
         let recipeData;
         if (typeof sanitizedRecipe === 'string') {
             try {
+                console.log(sanitizedRecipe);
                 recipeData = JSON.parse(sanitizedRecipe);
             } catch (e) {
                 console.error("Error parsing recipe JSON:", e);
