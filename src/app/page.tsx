@@ -19,9 +19,6 @@ import {decodeHTMLEntities} from "@/lib/utils";
 
 export default function Home() {
   const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
-  const [generatedRecipe, setGeneratedRecipe] = useState<any>(null);
-
-  const router = useRouter();
 
   useEffect(() => {
     // Load recipes from local storage on component mount
@@ -41,7 +38,7 @@ export default function Home() {
     router.push(`/recipe?content=${encodeURIComponent(JSON.stringify(recipe))}`);
   };
 
-  const handleSetGeneratedRecipe = (recipe: any) => router.push(`/recipe?content=${encodeURIComponent(JSON.stringify(recipe))}`);
+  const router = useRouter();
 
   return (
     <div className="container mx-auto p-4">
@@ -54,7 +51,7 @@ export default function Home() {
           <TabsTrigger value="past">Past Recipes</TabsTrigger>
         </TabsList>
         <TabsContent value="generate">
-          <RecipeGenerator setGeneratedRecipe={handleSetGeneratedRecipe}/>
+          <RecipeGenerator />
         </TabsContent>
         <TabsContent value="improve">
           <RecipeImprovement />

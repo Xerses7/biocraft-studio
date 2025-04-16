@@ -6,13 +6,15 @@ import {jsPDF} from 'jspdf';
 import {useEffect, useState} from 'react';
 import {define} from 'ajv';
 import {useToast} from "@/hooks/use-toast"
+import {decodeHTMLEntities} from "@/lib/utils";
 
 export default function RecipePage() {
   const searchParams = useSearchParams();
   const content = searchParams.get('content');
   const [recipeData, setRecipeData] = useState<any>(null);
-    const {toast} = useToast()
+  const {toast} = useToast()
   const router = useRouter();
+  const [isRecipeSaved, setIsRecipeSaved] = useState(false);
 
   useEffect(() => {
     if (content) {
@@ -63,6 +65,33 @@ export default function RecipePage() {
   const handleDiscard = () => {
     localStorage.removeItem('generatedRecipe');
     router.push('/');
+  };
+
+  const handleSaveRecipe = () => {
+    if (!recipeData) {
+      toast({
+        variant: "destructive",
+        title: "No Recipe to Save",
+        description: "Please generate or improve a recipe before saving.",
+      });
+      return;
+    }
+
+    // Retrieve existing saved recipes from local storage
+    const storedRecipes = localStorage.getItem('savedRecipes');
+    let savedRecipes = storedRecipes ? JSON.parse(storedRecipes) : [];
+
+    // Add the current recipe to the saved recipes array
+    savedRecipes.push(recipeData);
+
+    // Save the updated saved recipes array back to local storage
+    localStorage.setItem('savedRecipes', JSON.stringify(savedRecipes));
+
+    setIsRecipeSaved(true);
+    toast({
+      title: "Recipe Saved!",
+      description: "This recipe has been saved to your past recipes.",
+    });
   };
 
   if (!content) {
@@ -122,21 +151,20 @@ export default function RecipePage() {
         </ul>
       );
     } else if (section.toLowerCase() === 'notes') {
-        return (
-          <ul>
-            {Array.isArray(content) ? (
-              content.map((item, index) => (
-                <li key={index}>
-                  {item.note}
-                </li>
-              ))
-            ) : (
-              <li>Invalid Notes format</li>
-            )}
-          </ul>
-        );
-      }
-     else {
+      return (
+        <ul>
+          {Array.isArray(content) ? (
+            content.map((item, index) => (
+              <li key={index}>
+                {item.note}
+              </li>
+            ))
+          ) : (
+            <li>Invalid Notes format</li>
+          )}
+        </ul>
+      );
+    } else {
       return (
         <div>
           {typeof content === 'string' ? (
@@ -183,7 +211,14 @@ export default function RecipePage() {
         <Button variant="destructive" onClick={handleDiscard}>
           Discard Recipe
         </Button>
+        <Button
+          onClick={handleSaveRecipe}
+          disabled={isRecipeSaved}
+        >
+          {isRecipeSaved ? "Recipe Saved!" : "Save Recipe"}
+        </Button>
       </div>
     </div>
   );
 }
+

@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {improveExistingRecipe} from '@/ai/flows/improve-existing-recipe';
 import {Button} from '@/components/ui/button';
 import {Textarea} from '@/components/ui/textarea';
+import {useRouter} from 'next/navigation';
 import {toast} from "@/hooks/use-toast"
 
 type RecipeImprovementProps = {
@@ -14,6 +15,7 @@ export function RecipeImprovement({setGeneratedRecipe}: RecipeImprovementProps) 
   const [existingRecipe, setExistingRecipe] = useState('');
   const [desiredOutcomes, setDesiredOutcomes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleImproveRecipe = async () => {
     setIsLoading(true);
@@ -22,7 +24,15 @@ export function RecipeImprovement({setGeneratedRecipe}: RecipeImprovementProps) 
         existingRecipe: existingRecipe,
         desiredOutcomes: desiredOutcomes,
       });
-      setGeneratedRecipe(recipe.improvedRecipe);
+
+      if (recipe && recipe.improvedRecipe) {
+        // Save the improved recipe to local storage
+        localStorage.setItem('generatedRecipe', recipe.improvedRecipe);
+
+        // Redirect to the recipe details page
+        router.push(`/recipe?content=${encodeURIComponent(JSON.stringify(recipe.improvedRecipe))}`);
+      }
+
       toast({
         title: "Recipe Improved",
         description: "Your recipe has been successfully improved.",
@@ -76,3 +86,4 @@ export function RecipeImprovement({setGeneratedRecipe}: RecipeImprovementProps) 
     </div>
   );
 }
+

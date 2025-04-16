@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {generateBiotechRecipe} from '@/ai/flows/generate-biotech-recipe';
 import {Button} from '@/components/ui/button';
 import {Textarea} from '@/components/ui/textarea';
+import {useRouter} from 'next/navigation';
 import {toast} from "@/hooks/use-toast"
 
 type RecipeGeneratorProps = {
@@ -14,21 +15,24 @@ export function RecipeGenerator({setGeneratedRecipe}: RecipeGeneratorProps) {
   const [ingredients, setIngredients] = useState('');
   const [desiredOutcome, setDesiredOutcome] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleGenerateRecipe = async () => {
-    console.log("handleGenerateRecipe called")
-      setIsLoading(true);
+    setIsLoading(true);
     try {
-      console.log("before generateBiotechRecipe call");
       const recipe = await generateBiotechRecipe({
         ingredients: ingredients,
         desiredOutcome: desiredOutcome,
       });
-      console.log("after generateBiotechRecipe call");
 
-      console.log(recipe)
-      if (recipe && recipe.recipe)
-      setGeneratedRecipe(recipe.recipe);
+      if (recipe && recipe.recipe) {
+        // Save the generated recipe to local storage
+        localStorage.setItem('generatedRecipe', recipe.recipe);
+
+        // Redirect to the recipe details page
+        router.push(`/recipe?content=${encodeURIComponent(JSON.stringify(recipe.recipe))}`);
+      }
+
       toast({
         title: "Recipe Generated",
         description: "Your recipe has been successfully generated.",
@@ -83,3 +87,4 @@ export function RecipeGenerator({setGeneratedRecipe}: RecipeGeneratorProps) {
     </div>
   );
 }
+
