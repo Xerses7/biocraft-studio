@@ -18,9 +18,8 @@ import {toast} from "@/hooks/use-toast"
 import {decodeHTMLEntities} from "@/lib/utils";
 
 export default function Home() {
-  const [generatedRecipe, setGeneratedRecipe] = useState<any | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
-  const [isRecipeSaved, setIsRecipeSaved] = useState(false);
+
   const router = useRouter();
 
   useEffect(() => {
@@ -36,121 +35,9 @@ export default function Home() {
     localStorage.setItem('savedRecipes', JSON.stringify(savedRecipes));
   }, [savedRecipes]);
 
-  const saveRecipe = () => {
-    if (generatedRecipe) {
-      setSavedRecipes([...savedRecipes, generatedRecipe]);
-      setIsRecipeSaved(true);
-      toast({
-        title: "Recipe saved!",
-        description: "This recipe has been saved to your past recipes.",
-      })
-    }
-  };
-
-  const discardRecipe = () => {
-    setGeneratedRecipe(null);
-    setIsRecipeSaved(false);
-  };
-
-  const handleTabChange = (value: string) => {
-    setGeneratedRecipe(null);
-    setIsRecipeSaved(false);
-  };
-
   const handleRowClick = (recipe: any) => {
     // Navigate to a new page with the recipe content as a query parameter
     router.push(`/recipe?content=${encodeURIComponent(JSON.stringify(recipe))}`);
-  };
-
-  const renderRecipeSection = (section: string, content: any) => {
-    if (Array.isArray(content)) {
-      if (section.toLowerCase() === 'materials') {
-        return (
-          <ul>
-            {content.map((material, index) => (
-              <li key={index}>
-                <strong>{material.name}:</strong> {material.quantity} ({material.supplier})
-              </li>
-            ))}
-          </ul>
-        );
-      } else if (section.toLowerCase() === 'procedure') {
-        return (
-          <ol>
-            {content.map((procedure, index) => (
-              <li key={index}>
-                <strong>{procedure.title}:</strong>
-                <ol>
-                  {procedure.steps.map((step, stepIndex) => (
-                    <li key={stepIndex}>{step}</li>
-                  ))}
-                </ol>
-              </li>
-            ))}
-          </ol>
-        );
-      } else if (section.toLowerCase() === 'troubleshooting') {
-        return (
-          <ul>
-            {content.map((trouble, index) => (
-              <li key={index}>
-                <strong>{trouble.issue}:</strong> {trouble.solution}
-              </li>
-            ))}
-          </ul>
-        );
-      } else {
-        return (
-          <div>
-            {content.map((item, index) => (
-              <p key={index}>
-                <strong>{item.key}:</strong> {item.value}
-              </p>
-            ))}
-          </div>
-        );
-      }
-    } else {
-      return <p>{content}</p>;
-    }
-  };
-
-  const renderRecipe = (recipe: any) => {
-    if (!recipe) {
-      return <p>No recipe generated.</p>;
-    }
-
-    try {
-      let recipeData;
-      if (typeof recipe === 'string') {
-        try {
-          recipeData = JSON.parse(decodeHTMLEntities(recipe));
-        } catch (e) {
-          console.error("Error parsing recipe JSON:", e);
-          return <p>Error decoding recipe content: Invalid JSON format.</p>;
-        }
-      } else {
-        recipeData = recipe;
-      }
-
-      if (typeof recipeData === 'object' && recipeData !== null) {
-        return (
-          <div>
-            {Object.entries(recipeData).map(([section, content]) => (
-              <div key={section} className="mb-4">
-                <h3 className="text-lg font-semibold">{section}</h3>
-                <div>{renderRecipeSection(section, content)}</div>
-              </div>
-            ))}
-          </div>
-        );
-      } else {
-        return <p>Invalid recipe format.</p>;
-      }
-    } catch (error) {
-      console.error("Error parsing recipe JSON:", error);
-      return <p>Error decoding recipe content.</p>;
-    }
   };
 
   return (
@@ -159,43 +46,15 @@ export default function Home() {
 
       <Tabs defaultValue="generate">
         <TabsList className="mb-4">
-          <TabsTrigger value="generate" onClick={discardRecipe}>Recipe Generation</TabsTrigger>
-          <TabsTrigger value="improve" onClick={discardRecipe}>Recipe Improvement</TabsTrigger>
+          <TabsTrigger value="generate">Recipe Generation</TabsTrigger>
+          <TabsTrigger value="improve">Recipe Improvement</TabsTrigger>
           <TabsTrigger value="past">Past Recipes</TabsTrigger>
         </TabsList>
         <TabsContent value="generate">
-          <RecipeGenerator setGeneratedRecipe={setGeneratedRecipe} />
-          {generatedRecipe && (
-            <div className="mt-4">
-              <h2 className="text-xl font-semibold mb-2">Generated Recipe:</h2>
-              <div>{renderRecipe(generatedRecipe)}</div>
-              <div className="flex gap-2">
-                <Button onClick={saveRecipe} disabled={isRecipeSaved}>
-                  {isRecipeSaved ? 'Recipe Saved!' : 'Save Recipe'}
-                </Button>
-                <Button variant="destructive" onClick={discardRecipe}>
-                  Discard Recipe
-                </Button>
-              </div>
-            </div>
-          )}
+          <RecipeGenerator />
         </TabsContent>
         <TabsContent value="improve">
-          <RecipeImprovement setGeneratedRecipe={setGeneratedRecipe} />
-          {generatedRecipe && (
-            <div className="mt-4">
-              <h2 className="text-xl font-semibold mb-2">Improved Recipe:</h2>
-              <div>{renderRecipe(generatedRecipe)}</div>
-              <div className="flex gap-2">
-                <Button onClick={saveRecipe} disabled={isRecipeSaved}>
-                  {isRecipeSaved ? 'Recipe Saved!' : 'Save Recipe'}
-                </Button>
-                <Button variant="destructive" onClick={discardRecipe}>
-                  Discard Recipe
-                </Button>
-              </div>
-            </div>
-          )}
+          <RecipeImprovement />
         </TabsContent>
         <TabsContent value="past">
           <div>
@@ -205,17 +64,26 @@ export default function Home() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[100px]">Recipe</TableHead>
+                      <TableHead className="w-[100px]">Recipe Name</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {savedRecipes.map((recipe, index) => (
-                      <TableRow key={index} onClick={() => handleRowClick(recipe)} className="cursor-pointer hover:bg-secondary">
-                        <TableCell>
-                          {typeof recipe === 'string' ? recipe.substring(0, 50) + "..." : 'JSON Recipe'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {savedRecipes.map((recipe, index) => {
+                      let recipeName = 'JSON Recipe';
+                      try {
+                        const parsedRecipe = typeof recipe === 'string' ? JSON.parse(decodeHTMLEntities(recipe)) : recipe;
+                        recipeName = parsedRecipe.recipeName || 'JSON Recipe';
+                      } catch (error) {
+                        console.error("Error parsing recipe JSON:", error);
+                      }
+                      return (
+                        <TableRow key={index} onClick={() => handleRowClick(recipe)} className="cursor-pointer hover:bg-secondary">
+                          <TableCell>
+                            {recipeName}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -228,3 +96,4 @@ export default function Home() {
     </div>
   );
 }
+
