@@ -6,7 +6,6 @@ import {jsPDF} from 'jspdf';
 import {useEffect, useState} from 'react';
 import {define} from 'ajv';
 import {useToast} from "@/hooks/use-toast"
-import {decodeHTMLEntities} from "@/lib/utils";
 
 export default function RecipePage() {
   const searchParams = useSearchParams();
@@ -19,39 +18,16 @@ export default function RecipePage() {
   useEffect(() => {
     if (content) {
       try {
-        let decodedContent;
-        try {
-          decodedContent = decodeURIComponent(content);
-        } catch (decodeError) {
-          console.error("Error decoding URI:", decodeError);
-          toast({
-            variant: "destructive",
-            title: "Error Decoding URI",
-            description: "Failed to decode the recipe content from the URL."
-          })
-          return;
-        }
-
-        try {
-          const parsedRecipe = JSON.parse(decodedContent);
-          setRecipeData(parsedRecipe);
-        } catch (parseError) {
-          console.error("Error parsing recipe JSON:", parseError);
-          toast({
-            variant: "destructive",
-            title: "Error Parsing JSON",
-            description: "Failed to parse the decoded recipe content."
-          })
-          setRecipeData({ error: "Error decoding recipe content." });
-        }
-      } catch (error) {
-        console.error("Unexpected error:", error);
+        const parsedRecipe = JSON.parse(content);
+        setRecipeData(parsedRecipe);
+      } catch (parseError) {
+        console.error("Error parsing recipe JSON:", parseError);
         toast({
           variant: "destructive",
-          title: "Unexpected Error",
-          description: "An unexpected error occurred while processing the recipe content."
+          title: "Error Parsing JSON",
+          description: "Failed to parse the recipe content."
         })
-        setRecipeData({ error: "Unexpected error occurred." });
+        setRecipeData({ error: "Error decoding recipe content." });
       }
     }
   }, [content]);
@@ -221,3 +197,4 @@ export default function RecipePage() {
     </div>
   );
 }
+
