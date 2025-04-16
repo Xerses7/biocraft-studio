@@ -4,7 +4,6 @@ import {useSearchParams, useRouter} from 'next/navigation';
 import {Button} from '@/components/ui/button';
 import {jsPDF} from 'jspdf';
 import {useEffect, useState} from 'react';
-import {define} from 'ajv';
 import {useToast} from "@/hooks/use-toast"
 
 export default function RecipePage() {
@@ -20,15 +19,18 @@ export default function RecipePage() {
       try {
         const parsedRecipe = JSON.parse(content);
         setRecipeData(parsedRecipe);
+        setIsRecipeSaved(localStorage.getItem('savedRecipes')?.includes(content) || false);
       } catch (parseError) {
         console.error("Error parsing recipe JSON:", parseError);
         toast({
           variant: "destructive",
           title: "Error Parsing JSON",
-          description: "Failed to parse the recipe content."
-        })
-        setRecipeData({ error: "Error decoding recipe content." });
+          description: "Failed to parse the recipe content.",
+        });
+        setRecipeData(null);
       }
+    } else {
+      setRecipeData(null);
     }
   }, [content]);
 
@@ -53,26 +55,27 @@ export default function RecipePage() {
       return;
     }
 
-    // Retrieve existing saved recipes from local storage
+    const contentString = JSON.stringify(recipeData);
+
     const storedRecipes = localStorage.getItem('savedRecipes');
     let savedRecipes = storedRecipes ? JSON.parse(storedRecipes) : [];
 
-    // Add the current recipe to the saved recipes array
-    savedRecipes.push(recipeData);
-
-    // Save the updated saved recipes array back to local storage
-    localStorage.setItem('savedRecipes', JSON.stringify(savedRecipes));
-
-    setIsRecipeSaved(true);
-    toast({
-      title: "Recipe Saved!",
-      description: "This recipe has been saved to your past recipes.",
-    });
+    if (!savedRecipes.some((recipe: any) => JSON.stringify(recipe) === contentString)) {
+      savedRecipes.push(recipeData);
+      localStorage.setItem('savedRecipes', JSON.stringify(savedRecipes));
+      setIsRecipeSaved(true);
+      toast({
+        title: "Recipe Saved!",
+        description: "This recipe has been saved to your past recipes.",
+      });
+    } else {
+      toast({
+        title: "Recipe Already Saved",
+        description: "This recipe is already in your saved recipes.",
+      });
+    }
   };
 
-  if (!content) {
-    return <div>No recipe content found.</div>;
-  }
 
   const renderRecipeSection = (section: string, content: any) => {
     if (section.toLowerCase() === 'materials') {
@@ -162,8 +165,8 @@ export default function RecipePage() {
       return <p>No recipe content.</p>;
     }
 
-    if (recipe.error) {
-      return <p>{recipe.error}</p>;
+    if (typeof recipe !== 'object' || recipe === null) {
+      return <p>Invalid recipe format.</p>;
     }
 
     return (
@@ -177,11 +180,12 @@ export default function RecipePage() {
       </div>
     );
   };
+  
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Recipe Details</h1>
-      <div>{renderRecipe(recipeData)}</div>
+      <div>{recipeData && renderRecipe(recipeData)}</div>
       <div className="flex gap-4">
         <Button onClick={downloadPdf}>Download as PDF</Button>
         <Button variant="destructive" onClick={handleDiscard}>
@@ -197,4 +201,3 @@ export default function RecipePage() {
     </div>
   );
 }
-
