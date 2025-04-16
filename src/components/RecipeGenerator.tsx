@@ -16,13 +16,18 @@ export function RecipeGenerator({setGeneratedRecipe}: RecipeGeneratorProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGenerateRecipe = async () => {
-    setIsLoading(true);
+    console.log("handleGenerateRecipe called")
+      setIsLoading(true);
     try {
+      console.log("before generateBiotechRecipe call");
       const recipe = await generateBiotechRecipe({
         ingredients: ingredients,
         desiredOutcome: desiredOutcome,
       });
+      console.log("after generateBiotechRecipe call");
 
+      console.log(recipe)
+      if (recipe && recipe.recipe)
       setGeneratedRecipe(recipe.recipe);
       toast({
         title: "Recipe Generated",
@@ -34,6 +39,7 @@ export function RecipeGenerator({setGeneratedRecipe}: RecipeGeneratorProps) {
         title: "Error Generating Recipe",
         description: error.message,
       })
+      console.error("Error in generateBiotechRecipe:", error);
     } finally {
       setIsLoading(false);
     }
