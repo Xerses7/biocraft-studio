@@ -6,16 +6,14 @@ import {Button} from '@/components/ui/button';
 import {Textarea} from '@/components/ui/textarea';
 import {useRouter} from 'next/navigation';
 import {toast} from "@/hooks/use-toast"
+import {useRecipe} from '@/context/RecipeContext';
 
-type RecipeGeneratorProps = {
-  setGeneratedRecipe: (recipe: string) => void;
-};
-
-export function RecipeGenerator({setGeneratedRecipe}: RecipeGeneratorProps) {
+export function RecipeGenerator() {
   const [ingredients, setIngredients] = useState('');
   const [desiredOutcome, setDesiredOutcome] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { setCurrentRecipe } = useRecipe();
 
   const handleGenerateRecipe = async () => {
     setIsLoading(true);
@@ -26,11 +24,8 @@ export function RecipeGenerator({setGeneratedRecipe}: RecipeGeneratorProps) {
       });
 
       if (recipe && recipe.recipe) {
-        // Save the generated recipe to local storage
-        localStorage.setItem('generatedRecipe', recipe.recipe);
-
-        // Redirect to the recipe details page
-        router.push(`/recipe?content=${encodeURIComponent(JSON.stringify(recipe.recipe))}`);
+        setCurrentRecipe(recipe.recipe);
+        router.push(`/recipe`);
       }
 
       toast({
@@ -87,4 +82,3 @@ export function RecipeGenerator({setGeneratedRecipe}: RecipeGeneratorProps) {
     </div>
   );
 }
-

@@ -16,9 +16,13 @@ import {
 import {useRouter} from 'next/navigation';
 import {toast} from "@/hooks/use-toast"
 import {decodeHTMLEntities} from "@/lib/utils";
+import {useRecipe} from '@/context/RecipeContext';
 
 export default function Home() {
   const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
+  const router = useRouter();
+  const { setCurrentRecipe } = useRecipe();
+
 
   useEffect(() => {
     // Load recipes from local storage on component mount
@@ -34,11 +38,10 @@ export default function Home() {
   }, [savedRecipes]);
 
   const handleRowClick = (recipe: any) => {
-    // Navigate to a new page with the recipe content as a query parameter
-    router.push(`/recipe?content=${encodeURIComponent(JSON.stringify(recipe))}`);
+    setCurrentRecipe(JSON.stringify(recipe));
+    router.push(`/recipe`);
   };
 
-  const router = useRouter();
 
   return (
     <div className="container mx-auto p-4">
@@ -96,4 +99,3 @@ export default function Home() {
     </div>
   );
 }
-

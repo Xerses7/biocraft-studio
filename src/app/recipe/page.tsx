@@ -1,27 +1,26 @@
 'use client';
 
-import {useSearchParams, useRouter} from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import {Button} from '@/components/ui/button';
 import {jsPDF} from 'jspdf';
 import {useEffect, useState} from 'react';
 import {useToast} from "@/hooks/use-toast"
+import {useRecipe} from '@/context/RecipeContext';
 
 export default function RecipePage() {
-  const searchParams = useSearchParams();
-  const content = searchParams.get('content');
+  const router = useRouter();
+  const { currentRecipe, setCurrentRecipe } = useRecipe();
   const [recipeData, setRecipeData] = useState<any>(null);
   const {toast} = useToast()
-  const router = useRouter();
   const [isRecipeSaved, setIsRecipeSaved] = useState(false);
 
   useEffect(() => {
-    if (content) {
+    if (currentRecipe) {
       try {
-        const parsedRecipe = JSON.parse(content);
+        const parsedRecipe = JSON.parse(currentRecipe);
         setRecipeData(parsedRecipe);
-        setIsRecipeSaved(localStorage.getItem('savedRecipes')?.includes(content) || false);
+        setIsRecipeSaved(localStorage.getItem('savedRecipes')?.includes(currentRecipe) || false);
       } catch (parseError) {
-        console.error("Error parsing recipe JSON:", parseError);
         toast({
           variant: "destructive",
           title: "Error Parsing JSON",
@@ -32,17 +31,12 @@ export default function RecipePage() {
     } else {
       setRecipeData(null);
     }
-  }, [content]);
+  }, [currentRecipe]);
 
   const downloadPdf = () => {
     const pdf = new jsPDF();
     pdf.text(JSON.stringify(recipeData), 10, 10);
     pdf.save('recipe.pdf');
-  };
-
-  const handleDiscard = () => {
-    localStorage.removeItem('generatedRecipe');
-    router.push('/');
   };
 
   const handleSaveRecipe = () => {
@@ -76,126 +70,63 @@ export default function RecipePage() {
     }
   };
 
+    const handleDiscardRecipe = () => {
+    setCurrentRecipe(null);
+    router.push('/');
+  };
 
-  const renderRecipeSection = (section: string, content: any) => {
-    if (section.toLowerCase() === 'materials') {
-      return (
-        <ul>
-          {Array.isArray(content) ? (
-            content.map((item, index) => (
-              <li key={index}>
-                <strong>{item.name}:</strong> {item.quantity} ({item.supplier})
-              </li>
-            ))
-          ) : (
-            <li>Invalid Materials format</li>
-          )}
-        </ul>
-      );
-    } else if (section.toLowerCase() === 'procedure') {
-      return (
-        <ol>
-          {Array.isArray(content) ? (
-            content.map((item, index) => (
-              <li key={index}>
-                <strong>{item.title}:</strong>
-                <ol>
-                  {Array.isArray(item.steps) ? (
-                    item.steps.map((step, stepIndex) => (
-                      <li key={stepIndex}>{step}</li>
-                    ))
-                  ) : (
-                    <li>Invalid Steps format</li>
-                  )}
-                </ol>
-              </li>
-            ))
-          ) : (
-            <li>Invalid Procedure format</li>
-          )}
-        </ol>
-      );
-    } else if (section.toLowerCase() === 'troubleshooting') {
-      return (
-        <ul>
-          {Array.isArray(content) ? (
-            content.map((item, index) => (
-              <li key={index}>
-                <strong>{item.issue}:</strong> {item.solution}
-              </li>
-            ))
-          ) : (
-            <li>Invalid Troubleshooting format</li>
-          )}
-        </ul>
-      );
-    } else if (section.toLowerCase() === 'notes') {
-      return (
-        <ul>
-          {Array.isArray(content) ? (
-            content.map((item, index) => (
-              <li key={index}>
-                {item.note}
-              </li>
-            ))
-          ) : (
-            <li>Invalid Notes format</li>
-          )}
-        </ul>
-      );
-    } else {
+  const renderRecipeSection = (content: any): React.ReactNode => {
+    if (Array.isArray(content)) {
       return (
         <div>
-          {typeof content === 'string' ? (
-            <p>{content}</p>
-          ) : (
-            Object.entries(content).map(([key, value]) => (
-              <p key={key}>
-                <strong>{key}:</strong> {value}
-              </p>
-            ))
-          )}
+          {content.map((item, index) => (
+            <div key={index} className="mb-2">
+              {renderRecipeSection(item)}
+            </div>
+          ))}
         </div>
       );
+    } else if (typeof content === 'object' && content !== null) {
+      return (
+        <div>
+          {Object.entries(content).map(([key, value]) => (
+            <div key={key} className="mb-4">
+              <h4 className="font-semibold">{key}:</h4>
+              <div>{renderRecipeSection(value)}</div>
+            </div>
+          ))}
+        </div>
+      );
+    } else if (typeof content === 'string') {
+      return <p>{content}</p>
+    } else if (typeof content === 'number') {
+      return <p>{content.toString()}</p>;
+    } else {
+      return null;
     }
   };
-
-  const renderRecipe = (recipe: any) => {
-    if (!recipe) {
-      return <p>No recipe content.</p>;
-    }
-
-    if (typeof recipe !== 'object' || recipe === null) {
-      return <p>Invalid recipe format.</p>;
-    }
-
-    return (
-      <div>
-        {Object.entries(recipe).map(([section, content]) => (
-          <div key={section} className="mb-4">
-            <h3 className="text-lg font-semibold">{section}</h3>
-            <div>{renderRecipeSection(section, content)}</div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-  
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto py-8">
+      {recipeData && (
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <h1 className="text-3xl font-bold mb-6">
+            {recipeData.recipeName || "Recipe Details"}
+          </h1>
+          {Object.entries(recipeData).map(([key, value]) => (
+            <div key={key}>{renderRecipeSection(value)}</div>
+          ))}
+        </div>
+      )}
       <h1 className="text-2xl font-bold mb-4">Recipe Details</h1>
-      <div>{recipeData && renderRecipe(recipeData)}</div>
+      <div>{recipeData && renderRecipeSection(recipeData)}</div>
       <div className="flex gap-4">
         <Button onClick={downloadPdf}>Download as PDF</Button>
-        <Button variant="destructive" onClick={handleDiscard}>
-          Discard Recipe
-        </Button>
-        <Button
-          onClick={handleSaveRecipe}
-          disabled={isRecipeSaved}
-        >
+        <Button onClick={handleSaveRecipe} disabled={isRecipeSaved}>
           {isRecipeSaved ? "Recipe Saved!" : "Save Recipe"}
+        </Button>
+          <Button onClick={handleDiscardRecipe}>
+          Discard Recipe
         </Button>
       </div>
     </div>

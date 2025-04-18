@@ -6,16 +6,16 @@ import {Button} from '@/components/ui/button';
 import {Textarea} from '@/components/ui/textarea';
 import {useRouter} from 'next/navigation';
 import {toast} from "@/hooks/use-toast"
+import {useRecipe} from '@/context/RecipeContext';
 
-type RecipeImprovementProps = {
-  setGeneratedRecipe: (recipe: string) => void;
-};
 
-export function RecipeImprovement({setGeneratedRecipe}: RecipeImprovementProps) {
+export function RecipeImprovement() {
   const [existingRecipe, setExistingRecipe] = useState('');
   const [desiredOutcomes, setDesiredOutcomes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { setCurrentRecipe } = useRecipe();
+
 
   const handleImproveRecipe = async () => {
     setIsLoading(true);
@@ -26,11 +26,8 @@ export function RecipeImprovement({setGeneratedRecipe}: RecipeImprovementProps) 
       });
 
       if (recipe && recipe.improvedRecipe) {
-        // Save the improved recipe to local storage
-        localStorage.setItem('generatedRecipe', recipe.improvedRecipe);
-
-        // Redirect to the recipe details page
-        router.push(`/recipe?content=${encodeURIComponent(JSON.stringify(recipe.improvedRecipe))}`);
+        setCurrentRecipe(recipe.improvedRecipe);
+        router.push(`/recipe`);
       }
 
       toast({
@@ -86,4 +83,3 @@ export function RecipeImprovement({setGeneratedRecipe}: RecipeImprovementProps) 
     </div>
   );
 }
-
