@@ -24,6 +24,28 @@ export function RecipeGenerator() {
       });
 
       if (recipe && recipe.recipe) {
+        if (typeof recipe.recipe === 'object' && recipe.recipe !== null) {
+          // It's likely a JavaScript object (or an array, as arrays are objects too)
+          // This block executes if JSON.parse likely succeeded in producing an object/array
+          console.log("recipeData is an object:", recipe.recipe);
+          // You can proceed with rendering logic that expects an object, like Object.entries()
+        
+        } else if (typeof recipe.recipe === 'string') {
+          // It's still a string, meaning JSON.parse likely failed,
+          // or the original content wasn't JSON.
+          console.log("recipeData is still a string:", recipe.recipe);
+          // Display an error or the raw string
+        
+        } else if (recipe.recipe === null) {
+          // It's null, likely the initial state or explicitly set after an error
+          console.log("recipeData is null.");
+          // Display loading or error message
+        
+        } else {
+          // Handle other types if necessary (number, boolean, undefined)
+          console.log("recipeData is of type:", typeof recipe.recipe);
+        }
+
         setCurrentRecipe(recipe.recipe);
         router.push(`/recipe`);
       }

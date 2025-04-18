@@ -1,0 +1,148 @@
+/* src/styles/recipe-styles.css */
+
+/* --- Base Recipe Container --- */
+/* Apply class="recipe-details-container" to the main div holding the recipe */
+.recipe-details-container {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; /* Clean, modern font stack */
+    color: #333; /* Default text color */
+    line-height: 1.6; /* Improve readability */
+    /* Inherits bg-white, rounded-lg, shadow-md, p-8 from Tailwind */
+  }
+  
+  /* --- Recipe Title --- */
+  /* Targets the H1 inside .recipe-details-container */
+  .recipe-details-container h1 {
+    color: #008080; /* Primary color: Teal */
+    border-bottom: 2px solid #D3D3D3; /* Secondary color border */
+    padding-bottom: 0.75rem;
+    margin-bottom: 2rem; /* More space after title */
+    /* Inherits text-3xl, font-bold from Tailwind */
+  }
+  
+  /* --- Section Headings (Materials, Procedure, etc.) --- */
+  /* Targets H3 elements directly inside .recipe-details-container or its children sections */
+  .recipe-details-container h3 {
+    font-size: 1.75rem; /* Slightly larger heading */
+    font-weight: 600; /* Semi-bold */
+    color: #008080; /* Primary color: Teal */
+    margin-top: 2rem; /* Space above section headings */
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #eee; /* Lighter separator */
+    padding-bottom: 0.3rem;
+  }
+  .recipe-details-container h3:first-of-type {
+    margin-top: 0; /* No top margin for the very first section heading */
+  }
+  
+  /* --- Materials Section --- */
+  /* Apply class="recipe-materials" to the div containing the materials list */
+  .recipe-materials div { /* Targeting the divs for each material row */
+    margin-bottom: 0.6rem;
+    padding: 0.3rem 0;
+    border-bottom: 1px dashed #eee; /* Subtle separation between materials */
+  }
+  .recipe-materials div:last-child {
+    border-bottom: none; /* No border for the last item */
+  }
+  .recipe-materials span {
+    margin-right: 0.5rem;
+  }
+  .recipe-materials span:first-child { /* Material Name */
+    font-weight: 500; /* Slightly bolder name */
+  }
+  
+  /* --- Procedure Section --- */
+  /* Apply class="recipe-procedure" to the div containing the procedure list */
+  .recipe-procedure > div { /* Targeting the direct div children holding each procedure item */
+     margin-bottom: 1.75rem; /* Space between procedure steps/titles */
+  }
+  
+  .recipe-procedure h4 { /* Procedure Item Titles (e.g., "1. Preparation") */
+    font-size: 1.25rem; /* Slightly larger than body text */
+    font-weight: 600; /* Semi-bold */
+    color: #1a1a1a; /* Darker color for emphasis */
+    margin-bottom: 0.75rem;
+  }
+  
+  .recipe-procedure ul { /* Steps List */
+    list-style-type: decimal; /* Use numbers for steps by default */
+    margin-left: 1.75rem; /* Indentation */
+    padding-left: 0.5rem;
+  }
+  
+  .recipe-procedure ul ul { /* Nested steps list */
+      list-style-type: lower-alpha; /* Use letters for sub-steps */
+      margin-top: 0.5rem;
+      margin-left: 1.5rem;
+  }
+  
+  
+  .recipe-procedure li { /* Individual Steps */
+    margin-bottom: 0.6rem;
+    padding-left: 0.5rem; /* Space between number/bullet and text */
+  }
+  
+  /* --- Troubleshooting Section --- */
+  /* Apply class="recipe-troubleshooting" to the div containing the troubleshooting items */
+  .recipe-troubleshooting > div { /* Targeting the direct div children holding each issue/solution */
+     margin-bottom: 1rem;
+     padding: 1rem;
+     border-left: 5px solid #008080; /* Primary color accent */
+     background-color: #f7fdfd; /* Very light teal background */
+     border-radius: 4px;
+  }
+  
+  .recipe-troubleshooting p {
+    margin-bottom: 0.3rem;
+  }
+  .recipe-troubleshooting p:last-child {
+    margin-bottom: 0;
+  }
+  
+  .recipe-troubleshooting strong { /* Styling "Issue:", "Solution:" */
+    color: #006666; /* Darker Teal */
+    margin-right: 0.3rem;
+    display: inline-block; /* Ensures proper spacing */
+    min-width: 60px; /* Align labels */
+  }
+  
+  /* --- Notes Section --- */
+  /* Apply class="recipe-notes" to the div containing the notes list */
+  .recipe-notes ul {
+    list-style-type: disc; /* Standard bullets for notes */
+    margin-left: 1.75rem; /* Indentation */
+    padding-left: 0.5rem;
+  }
+  
+  .recipe-notes li {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background-color: #f0f0f0; /* Light gray background for notes */
+    border-radius: 4px;
+    border-left: 5px solid #D3D3D3; /* Secondary color accent */
+  
+  }
+  
+  /* --- Placeholder Text --- */
+  /* Apply class="recipe-placeholder" to paragraphs indicating empty sections */
+  .recipe-placeholder {
+    color: #777; /* Muted color */
+    font-style: italic;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background-color: #fafafa;
+    border-radius: 4px;
+    text-align: center;
+  }
+  
+  /* --- Accent Color Example --- */
+  /* You might use this for interactive elements if needed */
+  .interactive-highlight {
+    color: #7CFC00; /* Accent: Electric green */
+    cursor: pointer;
+    transition: color 0.2s ease-in-out;
+  }
+  .interactive-highlight:hover {
+    color: #68d000; /* Darker green on hover */
+  }
+  

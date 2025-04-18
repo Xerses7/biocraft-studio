@@ -38,7 +38,7 @@ export default function Home() {
   }, [savedRecipes]);
 
   const handleRowClick = (recipe: any) => {
-    setCurrentRecipe(JSON.stringify(recipe));
+    setCurrentRecipe(recipe);
     router.push(`/recipe`);
   };
 

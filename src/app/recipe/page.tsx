@@ -70,7 +70,7 @@ export default function RecipePage() {
     }
   };
 
-    const handleDiscardRecipe = () => {
+  const handleDiscardRecipe = () => {
     setCurrentRecipe(null);
     router.push('/');
   };
@@ -109,17 +109,71 @@ export default function RecipePage() {
   return (
     <div className="container mx-auto py-8">
       {recipeData && (
-        <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="recipe-details-container">
           <h1 className="text-3xl font-bold mb-6">
             {recipeData.recipeName || "Recipe Details"}
           </h1>
-          {Object.entries(recipeData).map(([key, value]) => (
+          <div className="recipe-materials">
+            <h3>Materials</h3> {/* Declares the section */}
+            {recipeData.Materials && recipeData.Materials.length > 0 ? (
+              recipeData.Materials.map((material:any, index:any) => (
+                <div key={index}> {/* Each material gets its own div (row) */}
+                  <span>{material.name}</span> - <span>{material.quantity}</span>
+                  {material.supplier && <span> (Supplier: {material.supplier})</span>} {/* Optionally display supplier */}
+                </div>
+              ))
+            ) : (
+              <p className="recipe-placeholder">No materials listed.</p>
+            )}
+          </div>
+          <div className="recipe-procedure">
+            <h3>Procedure</h3> {/* Declares the section */}
+              {recipeData.Procedure && recipeData.Procedure.length > 0 ? (
+                recipeData.Procedure.map((proc:any, procIndex:any) => (
+                  <div key={procIndex} style={{ marginBottom: '1em' }}> {/* Add some space between procedures */}
+                    <h4>{procIndex + 1}. {proc.title}</h4> {/* Numbered title */}
+                    <ul> 
+                      {proc.steps.map((step: any, stepIndex: any) => (
+                        <li key={stepIndex}>{step}</li> 
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              ) : (
+                <p className="recipe-placeholder">No procedure steps available.</p>
+              )}
+          </div>
+          <div className="recipe-troubleshooting">
+          <h3>Troubleshooting</h3> {/* Declares the section */}
+            {recipeData.Troubleshooting && recipeData.Troubleshooting.length > 0 ? (
+              recipeData.Troubleshooting.map((item:any, index:any) => (
+                <div key={index} style={{ marginBottom: '0.75em' }}> {/* Add space between items */}
+                  <p><strong>Issue:</strong> {item.issue}</p> {/* Bold label for issue */}
+                  <p><strong>Solution:</strong> {item.solution}</p> {/* Bold label for solution */}
+                </div>
+              ))
+            ) : (
+              <p className="recipe-placeholder">No troubleshooting notes available.</p> /* Optional: message if empty */
+            )}
+          </div>
+          <div className="recipe-notes">
+          <h3>Notes</h3> {/* Declares the section */}
+            {recipeData.Notes && recipeData.Notes.length > 0 ? (
+              <ul> {/* Unordered list for notes */}
+                {recipeData.Notes.map((item:any, index:any) => (
+                  <li key={index}>{item.note}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="recipe-placeholder">No additional notes available.</p> /* Optional: message if empty */
+            )}
+          </div>
+           {/* {Object.entries(recipeData).map(([key, value]) => (
             <div key={key}>{renderRecipeSection(value)}</div>
-          ))}
+          )) } */}
         </div>
       )}
-      <h1 className="text-2xl font-bold mb-4">Recipe Details</h1>
-      <div>{recipeData && renderRecipeSection(recipeData)}</div>
+      
       <div className="flex gap-4">
         <Button onClick={downloadPdf}>Download as PDF</Button>
         <Button onClick={handleSaveRecipe} disabled={isRecipeSaved}>
