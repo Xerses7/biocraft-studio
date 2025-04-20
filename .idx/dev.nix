@@ -21,15 +21,19 @@
         ];
       };
     };
-    # Enable previews and customize configuration
     previews = {
       enable = true;
-      previews = {
+      previews = {  # All preview definitions go inside this nested attribute set
         web = {
           command = ["npm" "run" "dev" "--" "--port" "$PORT" "--hostname" "0.0.0.0"];
           manager = "web";
         };
-      };
-    };
+        # Moved 'backend' inside the nested 'previews'
+        backend = {
+          command = ["sh" "-c" "cd src/server && npm start"];
+          manager = "web";
+        };
+      }; # End of the nested 'previews' attribute set
+    }; # End of the main 'previews' section
   };
 }
