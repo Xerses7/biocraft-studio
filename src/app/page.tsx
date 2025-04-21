@@ -37,11 +37,40 @@ export default function Home() {
     localStorage.setItem('savedRecipes', JSON.stringify(savedRecipes));
   }, [savedRecipes]);
 
-  const handleRowClick = (recipe: any) => {
-    setCurrentRecipe(recipe);
+  const handleRowClick = (recipeData: any) => {
+    setCurrentRecipe(recipeData);
     router.push(`/recipe`);
   };
 
+
+  const renderRecipe = (recipe: any, index: number) => {
+    let recipeName = 'JSON Recipe';
+    let parsedRecipe = null; // Initialize parsedRecipe to null
+
+    try {
+      // Attempt to parse the recipe if it's a string
+      parsedRecipe = typeof recipe === 'string' ? JSON.parse(recipe) : recipe;
+      recipeName = parsedRecipe.recipeName || 'JSON Recipe';
+    } catch (error) {
+      console.error("Error parsing recipe JSON:", error);
+      // If parsing fails, handle the error gracefully
+      return (
+        <TableRow key={index} className="cursor-pointer hover:bg-secondary">
+          <TableCell>
+            Invalid JSON Recipe
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return (
+      <TableRow key={index} onClick={() => handleRowClick(parsedRecipe)} className="cursor-pointer hover:bg-secondary">
+        <TableCell>
+          {recipeName}
+        </TableCell>
+      </TableRow>
+    );
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -71,22 +100,7 @@ export default function Home() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {savedRecipes.map((recipe, index) => {
-                      let recipeName = 'JSON Recipe';
-                      try {
-                        const parsedRecipe = typeof recipe === 'string' ? JSON.parse(decodeHTMLEntities(recipe)) : recipe;
-                        recipeName = parsedRecipe.recipeName || 'JSON Recipe';
-                      } catch (error) {
-                        console.error("Error parsing recipe JSON:", error);
-                      }
-                      return (
-                        <TableRow key={index} onClick={() => handleRowClick(recipe)} className="cursor-pointer hover:bg-secondary">
-                          <TableCell>
-                            {recipeName}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {savedRecipes.map(renderRecipe)}
                   </TableBody>
                 </Table>
               </div>
