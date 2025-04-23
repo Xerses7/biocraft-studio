@@ -1,9 +1,28 @@
 const { Pool } = require('pg');
 
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL, //Read from env variable
-    });
+const config = {
+  user: 'postgres.njgikdcfsdowqzexhytv',
+  host: 'aws-0-eu-west-3.pooler.supabase.com',
+  database: 'biocraft_db',
+  password: process.env.SUPABASE_DB_PASSWORD,
+  port: 5432,
+  // Adjust pool size as needed
+  max: 10,
+  idleTimeoutMillis: 30000,
+};
 
-    module.exports = {
-      query: (text, params) => pool.query(text, params),
-    };
+const pool = new Pool(config);
+
+pool.on('connect', () => {
+  console.log('Connected to the database pool');
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
+});
+
+module.exports = async function query(text, params) {
+  const client = await pool.connect();
+  return client.query(text, params).finally(() => client.release());
+}

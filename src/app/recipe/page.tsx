@@ -1,42 +1,60 @@
 'use client';
 
-import {useRouter} from 'next/navigation';
-import {Button} from '@/components/ui/button';
-import {jsPDF} from 'jspdf';
-import {useEffect, useState} from 'react';
-import {useToast} from "@/hooks/use-toast"
-import {useRecipe} from '@/context/RecipeContext';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { jsPDF } from 'jspdf';
+import { useEffect, useState } from 'react';
+import { useToast } from "@/hooks/use-toast"
+import { useRecipe } from '@/context/RecipeContext';
 
 export default function RecipePage() {
   const router = useRouter();
-  const { currentRecipe, setCurrentRecipe } = useRecipe();
+  // Get context functions and state
+  const { currentRecipe, setCurrentRecipe, savedRecipes, setSavedRecipes } = useRecipe();
   const [recipeData, setRecipeData] = useState<any>(null);
-  const {toast} = useToast()
+  const { toast } = useToast()
   const [isRecipeSaved, setIsRecipeSaved] = useState(false);
 
   useEffect(() => {
+    let parsedRecipe: any = null;
     if (currentRecipe) {
       try {
-        const parsedRecipe = JSON.parse(currentRecipe);
+        parsedRecipe = JSON.parse(currentRecipe);
         setRecipeData(parsedRecipe);
-        setIsRecipeSaved(localStorage.getItem('savedRecipes')?.includes(currentRecipe) || false);
       } catch (parseError) {
         toast({
           variant: "destructive",
-          title: "Error Parsing JSON",
+          title: "Error Parsing Recipe",
           description: "Failed to parse the recipe content.",
         });
         setRecipeData(null);
+        // Optionally navigate back or show an error state
+        // router.push('/');
       }
     } else {
       setRecipeData(null);
     }
-  }, [currentRecipe]);
+
+    // Check if the *parsed* recipe exists in the context's savedRecipes array
+    if (parsedRecipe && Array.isArray(savedRecipes)) {
+        const recipeString = JSON.stringify(parsedRecipe); // Ensure consistent comparison
+        setIsRecipeSaved(savedRecipes.some(recipe => JSON.stringify(recipe) === recipeString));
+    } else {
+        setIsRecipeSaved(false);
+    }
+
+  }, [currentRecipe, savedRecipes, toast]); // Add savedRecipes to dependency array
 
   const downloadPdf = () => {
+    if (!recipeData) return; // Add check
     const pdf = new jsPDF();
-    pdf.text(JSON.stringify(recipeData), 10, 10);
-    pdf.save('recipe.pdf');
+    // Improve PDF content generation (example)
+    pdf.setFontSize(16);
+    pdf.text(recipeData.recipeName || "Recipe Details", 10, 10);
+    pdf.setFontSize(12);
+    // Add more structured content from recipeData here...
+    pdf.text(JSON.stringify(recipeData, null, 2), 10, 20); // Basic fallback
+    pdf.save(`${recipeData.recipeName || 'recipe'}.pdf`);
   };
 
   const handleSaveRecipe = () => {
@@ -49,15 +67,12 @@ export default function RecipePage() {
       return;
     }
 
-    const contentString = JSON.stringify(recipeData);
-
-    const storedRecipes = localStorage.getItem('savedRecipes');
-    let savedRecipes = storedRecipes ? JSON.parse(storedRecipes) : [];
-
-    if (!savedRecipes.some((recipe: any) => JSON.stringify(recipe) === contentString)) {
-      savedRecipes.push(recipeData);
-      localStorage.setItem('savedRecipes', JSON.stringify(savedRecipes));
-      setIsRecipeSaved(true);
+    // Check against context state using stringify for reliable comparison
+    const recipeString = JSON.stringify(recipeData);
+    if (!savedRecipes.some((recipe: any) => JSON.stringify(recipe) === recipeString)) {
+      // Update the CONTEXT state - this is the correct way
+      setSavedRecipes([...savedRecipes, recipeData]);
+      
       toast({
         title: "Recipe Saved!",
         description: "This recipe has been saved to your past recipes.",
@@ -71,7 +86,7 @@ export default function RecipePage() {
   };
 
   const handleDiscardRecipe = () => {
-    setCurrentRecipe(null);
+    setCurrentRecipe(null); // Clear current recipe from context
     router.push('/');
   };
 
@@ -108,81 +123,84 @@ export default function RecipePage() {
 
   return (
     <div className="container mx-auto py-8">
-      {recipeData && (
-        <div className="recipe-details-container">
+      {recipeData ? (
+        <div className="recipe-details-container mb-6 border p-4 rounded"> 
           <h1 className="text-3xl font-bold mb-6">
             {recipeData.recipeName || "Recipe Details"}
           </h1>
-          <div className="recipe-materials">
-            <h3>Materials</h3> {/* Declares the section */}
+          <div className="recipe-materials mb-4"> 
+            <h3 className="text-xl font-semibold mb-2">Materials</h3> 
             {recipeData.Materials && recipeData.Materials.length > 0 ? (
-              recipeData.Materials.map((material:any, index:any) => (
-                <div key={index}> {/* Each material gets its own div (row) */}
-                  <span>{material.name}</span> - <span>{material.quantity}</span>
-                  {material.supplier && <span> (Supplier: {material.supplier})</span>} {/* Optionally display supplier */}
-                </div>
-              ))
+              <ul className="list-disc pl-5"> 
+                {recipeData.Materials.map((material: any, index: any) => (
+                  <li key={index}>
+                    {material.name} - {material.quantity}
+                    {material.supplier && <span> (Supplier: {material.supplier})</span>}
+                  </li>
+                ))}
+              </ul>
             ) : (
-              <p className="recipe-placeholder">No materials listed.</p>
-            )}
+              <p className="recipe-placeholder text-gray-500">No materials listed.</p> )}
           </div>
-          <div className="recipe-procedure">
-            <h3>Procedure</h3> {/* Declares the section */}
+          <div className="recipe-procedure mb-4">
+            <h3 className="text-xl font-semibold mb-2">Procedure</h3> 
               {recipeData.Procedure && recipeData.Procedure.length > 0 ? (
-                recipeData.Procedure.map((proc:any, procIndex:any) => (
-                  <div key={procIndex} style={{ marginBottom: '1em' }}> {/* Add some space between procedures */}
-                    <h4>{procIndex + 1}. {proc.title}</h4> {/* Numbered title */}
-                    <ul> 
+                recipeData.Procedure.map((proc: any, procIndex: any) => (
+                  <div key={procIndex} className="mb-4"> 
+                    <h4 className="font-semibold">{procIndex + 1}. {proc.title}</h4> 
+                    <ul className="list-decimal pl-6 mt-1">
                       {proc.steps.map((step: any, stepIndex: any) => (
-                        <li key={stepIndex}>{step}</li> 
+                        <li key={stepIndex}>{step}</li>
                       ))}
                     </ul>
                   </div>
                 ))
               ) : (
-                <p className="recipe-placeholder">No procedure steps available.</p>
+                <p className="recipe-placeholder text-gray-500">No procedure steps available.</p>
               )}
           </div>
-          <div className="recipe-troubleshooting">
-          <h3>Troubleshooting</h3> {/* Declares the section */}
+          <div className="recipe-troubleshooting mb-4"> 
+           <h3 className="text-xl font-semibold mb-2">Troubleshooting</h3> 
             {recipeData.Troubleshooting && recipeData.Troubleshooting.length > 0 ? (
-              recipeData.Troubleshooting.map((item:any, index:any) => (
-                <div key={index} style={{ marginBottom: '0.75em' }}> {/* Add space between items */}
-                  <p><strong>Issue:</strong> {item.issue}</p> {/* Bold label for issue */}
-                  <p><strong>Solution:</strong> {item.solution}</p> {/* Bold label for solution */}
+              recipeData.Troubleshooting.map((item: any, index: any) => (
+                <div key={index} className="mb-2">
+                  <p><strong>Issue:</strong> {item.issue}</p>
+                  <p><strong>Solution:</strong> {item.solution}</p>
                 </div>
               ))
             ) : (
-              <p className="recipe-placeholder">No troubleshooting notes available.</p> /* Optional: message if empty */
+              <p className="recipe-placeholder text-gray-500">No troubleshooting notes available.</p>
             )}
           </div>
-          <div className="recipe-notes">
-          <h3>Notes</h3> {/* Declares the section */}
+           <div className="recipe-notes mb-4"> 
+           <h3 className="text-xl font-semibold mb-2">Notes</h3>
             {recipeData.Notes && recipeData.Notes.length > 0 ? (
-              <ul> {/* Unordered list for notes */}
+              <ul className="list-disc pl-5">
                 {recipeData.Notes.map((item:any, index:any) => (
                   <li key={index}>{item.note}</li>
                 ))}
               </ul>
             ) : (
-              <p className="recipe-placeholder">No additional notes available.</p> /* Optional: message if empty */
+              <p className="recipe-placeholder text-gray-500">No additional notes available.</p> 
             )}
           </div>
-           {/* {Object.entries(recipeData).map(([key, value]) => (
-            <div key={key}>{renderRecipeSection(value)}</div>
-          )) } */}
         </div>
+      ) : (
+          <p className="text-center text-gray-600">No recipe selected or loaded.</p> // Message when no recipe
+      )}
+
+      {recipeData && ( // Only show buttons if there is recipe data
+         <div className="flex gap-4 mt-4">
+           <Button onClick={downloadPdf} disabled={!recipeData}>Download as PDF</Button>
+           <Button onClick={handleSaveRecipe} disabled={isRecipeSaved || !recipeData}>
+             {isRecipeSaved ? "Recipe Saved" : "Save Recipe"}
+           </Button>
+           <Button variant="outline" onClick={handleDiscardRecipe}> 
+             Discard Recipe
+           </Button>
+         </div>
       )}
       
-      <div className="flex gap-4">
-        <Button onClick={downloadPdf}>Download as PDF</Button>
-        <Button onClick={handleSaveRecipe} disabled={isRecipeSaved}>
-          {isRecipeSaved ? "Recipe Saved!" : "Save Recipe"}
-        </Button>
-          <Button onClick={handleDiscardRecipe}>
-          Discard Recipe
-        </Button>
-      </div>
     </div>
   );
 }
