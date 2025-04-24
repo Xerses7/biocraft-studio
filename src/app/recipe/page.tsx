@@ -1,19 +1,19 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { jsPDF } from 'jspdf';
 import { useEffect, useState } from 'react';
 import { useToast } from "@/hooks/use-toast"
 import { useRecipe } from '@/context/RecipeContext';
+import { useAuth } from '@/context/AuthContext'; // Importa il nostro contesto di autenticazione
 
 export default function RecipePage() {
   const router = useRouter();
   // Get context functions and state
   const { currentRecipe, setCurrentRecipe, savedRecipes, setSavedRecipes } = useRecipe();
   const [recipeData, setRecipeData] = useState<any>(null);
-  const { data: session } = useSession()
+  const { session } = useAuth(); // Usa il nostro hook personalizzato invece di useSession
   const { toast } = useToast()
   const [isRecipeSaved, setIsRecipeSaved] = useState(false);
 
@@ -191,18 +191,31 @@ export default function RecipePage() {
           <p className="text-center text-gray-600">No recipe selected or loaded.</p> // Message when no recipe
       )}
 
-      {recipeData && ( // Only show buttons if there is recipe data and user is logged in
-        session && (
-          <div className="flex gap-4 mt-4">
-            <Button onClick={downloadPdf} disabled={!recipeData}>Download as PDF</Button>
-            <Button onClick={handleSaveRecipe} disabled={isRecipeSaved || !recipeData}>
-              {isRecipeSaved ? "Recipe Saved" : "Save Recipe"}
-            </Button>
-            <Button variant="outline" onClick={handleDiscardRecipe}>
-              Discard Recipe
-            </Button>
-          </div>
-        )
+      {recipeData && ( // Solo mostra i pulsanti se ci sono dati della ricetta
+         <div className="flex gap-4 mt-4">
+           <Button onClick={downloadPdf} disabled={!recipeData}>Download as PDF</Button>
+           {session ? ( // Verifica se l'utente è autenticato
+             <Button onClick={handleSaveRecipe} disabled={isRecipeSaved || !recipeData}>
+               {isRecipeSaved ? "Recipe Saved" : "Save Recipe"}
+             </Button>
+           ) : (
+             <Button 
+               onClick={() => {
+                 toast({
+                   title: "Login Required",
+                   description: "Please log in to save recipes",
+                   variant: "default"
+                 });
+                 router.push('/');
+               }}
+             >
+               Login to Save
+             </Button>
+           )}
+           <Button variant="outline" onClick={handleDiscardRecipe}> 
+             Discard Recipe
+           </Button>
+         </div>
       )}
       
     </div>
