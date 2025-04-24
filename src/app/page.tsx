@@ -5,8 +5,8 @@ import { RecipeGenerator } from '@/components/RecipeGenerator';
 import { RecipeImprovement } from '@/components/RecipeImprovement';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Import Input
-import { Label } from '@/components/ui/label'; // Import Label
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -54,6 +54,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false); // For loading indicators
   const [isLoginView, setIsLoginView] = useState(true); // Toggle between Login/Signup
   const [showLogin, setShowLogin] = useState(false); // Toggle for showing login form
+  const [showPublicApp, setShowPublicApp] = useState(false); // Control visibility of the app for non-logged in users
 
   // --- Check for existing session on mount (optional but good UX) ---
   // This requires your backend to potentially store session info (e.g., in a cookie)
@@ -154,6 +155,7 @@ export default function Home() {
       // await fetch(`${BACKEND_URL}/logout`, { method: 'POST', /* headers if needed */ });
       setSession(null); // Clear session state on frontend
       setCurrentRecipe(null); // Also clear current recipe context
+      setShowPublicApp(false); // Hide the app view
       toast({ title: "Logged Out", description: "You have been logged out successfully." });
       // Optionally clear email/password fields if needed
       // setEmail('');
@@ -178,33 +180,99 @@ export default function Home() {
     );
   };
 
+  // Render the application interface (used for both logged in users and public view)
+  const renderAppInterface = (showPastRecipes = false) => {
+    return (
+      <div className="container mx-auto p-4 relative">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">BioCraft Studio</h1>
+          <div>
+            {session ? (
+              <>
+                <span className="mr-4 text-sm text-muted-foreground">
+                  {`Welcome, ${session.user.email}!`}
+                </span>
+                <Button variant="outline" onClick={handleLogout}>Logout</Button>
+              </>
+            ) : (
+              <>
+                <span className="mr-4 text-sm text-muted-foreground">You're using the demo version</span>
+                <Button variant="outline" onClick={() => {
+                  setShowPublicApp(false);
+                  setShowLogin(true);
+                }}>Login</Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <Tabs defaultValue="generate" id="recipe-tabs">
+          <TabsList className="mb-4">
+            <TabsTrigger value="generate">Recipe Generation</TabsTrigger>
+            <TabsTrigger value="improve">Recipe Improvement</TabsTrigger>
+            {showPastRecipes && <TabsTrigger value="past">Past Recipes</TabsTrigger>}
+          </TabsList>
+          <TabsContent value="generate">
+            <RecipeGenerator />
+          </TabsContent>
+          <TabsContent value="improve">
+            <RecipeImprovement />
+          </TabsContent>
+          {showPastRecipes && (
+            <TabsContent value="past">
+              <div>
+                <h2 className="text-xl font-semibold mb-2">Past Recipes</h2>
+                {savedRecipes && savedRecipes.length > 0 ? (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[100px]">Recipe Name</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>{savedRecipes.map(renderRecipe)}</TableBody>
+                    </Table>
+                  </div>
+                ) : (<p>No recipes saved yet.</p>)}
+              </div>
+            </TabsContent>
+          )}
+        </Tabs>
+      </div>
+    );
+  };
+
   // --- Render Logic ---
 
-  // 1. Render Landing Page if not logged in
-  if (!session && !showLogin) {
-     return (
-         <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
-            <h1 className="text-6xl font-bold text-center mb-8">BioCraft Studio</h1>
-            <p className="text-lg text-center mb-8">
-              Unlock the power of biotechnology with our AI-driven recipe generator and improvement tool.
-            </p>
-            <div className="flex space-x-4">
-                <Button onClick={() => setShowLogin(true)} variant="outline">Login</Button>
-                <div>
-                <Link href="#generate">
-                    <Button variant="outline" >
-                      Generate/Improve a Recipe
-                    </Button>
-                </Link></div>
-            </div>
-         </div>
-     )
+  // Public application view (no login required)
+  if (showPublicApp) {
+    return renderAppInterface(false); // Don't show Past Recipes tab for public view
   }
 
+  // Landing Page
+  if (!session && !showLogin) {
+    return (
+      <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-6xl font-bold text-center mb-8">BioCraft Studio</h1>
+        <p className="text-lg text-center mb-8">
+          Unlock the power of biotechnology with our AI-driven recipe generator and improvement tool.
+        </p>
+        <div className="flex space-x-4">
+          <Button onClick={() => setShowLogin(true)} variant="outline">Login</Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowPublicApp(true)}
+          >
+            Generate/Improve a Recipe
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
-  // 2. Render Auth Forms if not logged in and showLogin is true
+  // Login/Signup Form
   if (!session && showLogin) {
-      return (
+    return (
       <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen relative">
         <Button onClick={() => setShowLogin(false)} className="absolute top-4 left-4" variant="outline">Back</Button>
         <div className="w-full max-w-md p-8 space-y-6 bg-card shadow-md rounded-lg border">
@@ -238,7 +306,7 @@ export default function Home() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                 className="mt-1"
+                className="mt-1"
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
@@ -257,58 +325,8 @@ export default function Home() {
         </div>
       </div>
     );
-   }
+  }
 
-  // 3. Render Main App if logged in
-  return (
-    <div className="container mx-auto p-4 relative">
-       <div className="flex justify-between items-center mb-4">
-         <h1 className="text-2xl font-bold">BioCraft Studio</h1>
-         <div>
-            <span className="mr-4 text-sm text-muted-foreground">
-              {
-                session && session.user
-                ? `Welcome, ${session.user.email}!`
-                : "Welcome!"
-              }
-            </span>
-
-
-            <Button variant="outline" onClick={handleLogout}>Logout</Button>
-         </div>
-       </div>
-
-      <Tabs defaultValue="generate">
-        <TabsList className="mb-4">
-          <TabsTrigger value="generate">Recipe Generation</TabsTrigger>
-          <TabsTrigger value="improve">Recipe Improvement</TabsTrigger>
-          {session && <TabsTrigger value="past">Past Recipes</TabsTrigger>}
-        </TabsList>
-        <TabsContent value="generate">
-          <RecipeGenerator />
-        </TabsContent>
-        <TabsContent value="improve">
-          <RecipeImprovement />
-        </TabsContent>
-         {session && (
-            <TabsContent value="past">
-              <div>
-                <h2 className="text-xl font-semibold mb-2">Past Recipes</h2>
-                {savedRecipes && savedRecipes.length > 0 ? (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[100px]">Recipe Name</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>{savedRecipes.map(renderRecipe)}</TableBody>
-                    </Table>
-                  </div>
-                ) : (<p>No recipes saved yet.</p>)}
-              </div>
-            </TabsContent>)}
-      </Tabs>
-    </div>
-  );
+  // Main App (logged in)
+  return renderAppInterface(true); // Show Past Recipes tab for logged-in users
 }
