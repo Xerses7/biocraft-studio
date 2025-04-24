@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { RecipeGenerator } from '@/components/RecipeGenerator';
-import { RecipeForm } from '@/components/RecipeForm';
 import { RecipeImprovement } from '@/components/RecipeImprovement';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -191,12 +190,12 @@ export default function Home() {
             </p>
             <div className="flex space-x-4">
                 <Button onClick={() => setShowLogin(true)} variant="outline">Login</Button>
-                <Link href="/recipe" passHref legacyBehavior>
+                <div>
+                <Link href="#generate">
                     <Button variant="outline" >
                       Generate/Improve a Recipe
                     </Button>
-                </Link>
-
+                </Link></div>
             </div>
          </div>
      )
@@ -266,7 +265,15 @@ export default function Home() {
        <div className="flex justify-between items-center mb-4">
          <h1 className="text-2xl font-bold">BioCraft Studio</h1>
          <div>
-            <span className="mr-4 text-sm text-muted-foreground">Welcome, {session.user.email}!</span>
+            <span className="mr-4 text-sm text-muted-foreground">
+              {
+                session && session.user
+                ? `Welcome, ${session.user.email}!`
+                : "Welcome!"
+              }
+            </span>
+
+
             <Button variant="outline" onClick={handleLogout}>Logout</Button>
          </div>
        </div>
@@ -278,7 +285,7 @@ export default function Home() {
           {session && <TabsTrigger value="past">Past Recipes</TabsTrigger>}
         </TabsList>
         <TabsContent value="generate">
-          <RecipeForm />
+          <RecipeGenerator />
         </TabsContent>
         <TabsContent value="improve">
           <RecipeImprovement />
