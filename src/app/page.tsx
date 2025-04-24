@@ -82,6 +82,69 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false); // Toggle for showing login form
   const [showPublicApp, setShowPublicApp] = useState(false); // Control visibility of the app for non-logged in users
 
+  // controllo della sessione all'avvio
+  useEffect(() => {
+    // Verifica se esiste un token di autenticazione all'avvio
+    const checkExistingAuth = async () => {
+      const storedAuth = localStorage.getItem('biocraft_auth');
+      
+      if (!storedAuth) return;
+      
+      try {
+        const parsedAuth = JSON.parse(storedAuth);
+        
+        // Verifica se il token è scaduto (se esiste un timestamp)
+        if (parsedAuth.timestamp) {
+          const now = Date.now();
+          const tokenAge = now - parsedAuth.timestamp;
+          const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 giorni in millisecondi
+          
+          if (tokenAge > maxAge) {
+            // Token troppo vecchio, eliminiamo
+            localStorage.removeItem('biocraft_auth');
+            return;
+          }
+        }
+        
+        // Se abbiamo un backend URL, verifichiamo il token
+        if (BACKEND_URL) {
+          try {
+            // Se hai un endpoint per verificare il token, usalo qui
+            // const response = await fetch(`${BACKEND_URL}/verify-token`, {
+            //   headers: { Authorization: `Bearer ${parsedAuth.token}` }
+            // });
+            
+            // Se non hai un endpoint specifico, simula una sessione valida
+            // In produzione, dovresti sempre verificare con il backend
+            setSession({
+              access_token: 'mock-token',
+              token_type: 'bearer',
+              expires_in: 3600,
+              expires_at: Date.now() + 3600000,
+              refresh_token: 'mock-refresh-token',
+              user: {
+                id: 'user-id',
+                aud: 'authenticated',
+                role: 'authenticated',
+                email: parsedAuth.email || 'user@example.com',
+              },
+            });
+            
+            // In un ambiente di produzione, carica le informazioni utente dal backend
+          } catch (error) {
+            console.error('Failed to verify token:', error);
+            localStorage.removeItem('biocraft_auth');
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing stored auth data:', error);
+        localStorage.removeItem('biocraft_auth');
+      }
+    };
+    
+    checkExistingAuth();
+  }, []);
+
   // --- Recipe Loading/Saving Logic (Conditional on Login) ---
   useEffect(() => {
     // Only load recipes if the user is logged in
@@ -120,6 +183,31 @@ export default function Home() {
     // Don't save if not logged in
   }, [savedRecipes, session]); // Watch context recipes AND session
 
+  // Funzione migliorata per validare la password
+  const validatePassword = (password: string): { valid: boolean; message: string } => {
+    if (!password) {
+      return { valid: false, message: "Password is required" };
+    }
+    
+    if (password.length < 6) {
+      return { valid: false, message: "Password must be at least 6 characters long" };
+    }
+    
+    // Opzionale: aggiungi ulteriori regole di sicurezza
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    
+    if (!(hasUpperCase && hasLowerCase && hasNumbers)) {
+      return { 
+        valid: false, 
+        message: "Password must include at least one uppercase letter, one lowercase letter, and one number" 
+      };
+    }
+    
+    return { valid: true, message: "" };
+  };
+
   // --- Authentication Handlers ---
   const handleAuthAction = async (event: React.FormEvent) => {
     event.preventDefault(); // Prevent default form submission
@@ -135,12 +223,13 @@ export default function Home() {
       setIsLoading(false);
       return;
     }
-
-    if (!password || password.length < 6) {
+    
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
       toast({
         variant: "destructive",
         title: "Invalid password",
-        description: "Password must be at least 6 characters long",
+        description: passwordValidation.message,
       });
       setIsLoading(false);
       return;
