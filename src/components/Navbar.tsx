@@ -2,18 +2,10 @@
 
 import Link from 'next/link';
 import {Button} from '@/components/ui/button';
-import {useState} from 'react';
+import {useAuth} from '@/context/AuthContext'; // Usa il nostro contesto di autenticazione
 
 export function Navbar() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-  };
+  const { isAuthenticated, logout } = useAuth();
 
   return (
     <nav className="bg-secondary p-4 flex justify-between items-center">
@@ -24,18 +16,18 @@ export function Navbar() {
         <Link href="/" className="hover:underline">
           Home
         </Link>
-        {isLoggedIn && (
+        {isAuthenticated && (
           <>
             <Link href="/account" className="hover:underline">
               Account
             </Link>
-            <Button onClick={handleLogout} variant="outline">
+            <Button onClick={logout} variant="outline">
               Log Out
             </Button>
           </>
         )}
-        {!isLoggedIn && (
-          <Button onClick={handleLogin} variant="outline">
+        {!isAuthenticated && (
+          <Button onClick={() => window.location.href = '/?login=true'} variant="outline">
             Login
           </Button>
         )}

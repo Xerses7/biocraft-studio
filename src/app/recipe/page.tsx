@@ -193,7 +193,7 @@ export default function RecipePage() {
 
       {recipeData && ( // Solo mostra i pulsanti se ci sono dati della ricetta
          <div className="flex gap-4 mt-4">
-           <Button onClick={downloadPdf} disabled={!recipeData}>Download as PDF</Button>
+           { session ? ( <Button onClick={downloadPdf} disabled={!recipeData}>Download as PDF</Button>) : null}
            {session ? ( // Verifica se l'utente è autenticato
              <Button onClick={handleSaveRecipe} disabled={isRecipeSaved || !recipeData}>
                {isRecipeSaved ? "Recipe Saved" : "Save Recipe"}
