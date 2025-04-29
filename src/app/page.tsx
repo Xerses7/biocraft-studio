@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, SetStateAction } from 'react';
 import { RecipeGenerator } from '@/components/RecipeGenerator';
 import { RecipeImprovement } from '@/components/RecipeImprovement';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -77,6 +77,10 @@ export default function Home() {
   const [session, setSession] = useState<AuthSession | null>(null); // Store user session
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordMatch, setPasswordMatch] = useState(true);
+  const [passwordValid, setPasswordValid] = useState(true);
+  const [passwordMessage, setPasswordMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false); // For loading indicators
   const [isLoginView, setIsLoginView] = useState(true); // Toggle between Login/Signup
   const [showLogin, setShowLogin] = useState(false); // Toggle for showing login form
@@ -184,33 +188,66 @@ export default function Home() {
   }, [savedRecipes, session]); // Watch context recipes AND session
 
   // Funzione migliorata per validare la password
-  const validatePassword = (password: string): { valid: boolean; message: string } => {
+  const validatePassword = (password: string) => {
     if (!password) {
-      return { valid: false, message: "Password is required" };
+      setPasswordValid(false);
+      setPasswordMessage("Password is required");
+      return false;
     }
     
     if (password.length < 6) {
-      return { valid: false, message: "Password must be at least 6 characters long" };
+      setPasswordValid(false);
+      setPasswordMessage("Password must be at least 6 characters long");
+      return false;
     }
     
-    // Opzionale: aggiungi ulteriori regole di sicurezza
+    // Check additional security rules
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
     const hasNumbers = /\d/.test(password);
     
     if (!(hasUpperCase && hasLowerCase && hasNumbers)) {
-      return { 
-        valid: false, 
-        message: "Password must include at least one uppercase letter, one lowercase letter, and one number" 
-      };
+      setPasswordValid(false);
+      setPasswordMessage("Password must include at least one uppercase letter, one lowercase letter, and one number");
+      return false;
     }
     
-    return { valid: true, message: "" };
+    setPasswordValid(true);
+    setPasswordMessage("");
+    return true;
+  };
+
+  // Handle password confirmation
+  const handleConfirmPasswordChange = (value: SetStateAction<string>) => {
+    setConfirmPassword(value);
+    // Check if passwords match and update the state
+    setPasswordMatch(password === value);
   };
 
   // --- Authentication Handlers ---
   const handleAuthAction = async (event: React.FormEvent) => {
-    event.preventDefault(); // Prevent default form submission
+    event.preventDefault();
+  
+    // For signup, verify passwords match
+    if (!isLoginView && !passwordMatch) {
+      toast({
+        variant: "destructive",
+        title: "Passwords don't match",
+        description: "Please make sure your passwords match",
+      });
+      return;
+    }
+    
+    // Validate password
+    if (!isLoginView && !validatePassword(password)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid password",
+        description: passwordMessage,
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     // Validazione input lato client
@@ -224,12 +261,11 @@ export default function Home() {
       return;
     }
     
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
+    if (!passwordValid) {
       toast({
         variant: "destructive",
         title: "Invalid password",
-        description: passwordValidation.message,
+        description: passwordMessage,
       });
       setIsLoading(false);
       return;
@@ -587,12 +623,50 @@ export default function Home() {
                   type="password"
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (!isLoginView) {
+                      validatePassword(e.target.value);
+                      setPasswordMatch(e.target.value === confirmPassword);
+                    }
+                  }}
                   required
                   disabled={isLoading}
+                  className={!passwordValid && !isLoginView ? "border-red-500" : ""}
                 />
+                {!passwordValid && !isLoginView && (
+                  <p className="text-sm text-red-500">{passwordMessage}</p>
+                )}
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              {!isLoginView && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password_confirm">Confirm Password</Label>
+                  </div>
+                  <Input
+                    id="password_confirm"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => handleConfirmPasswordChange(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    className={!passwordMatch ? "border-red-500" : ""}
+                  />
+                  {!passwordMatch && (
+                    <p className="text-sm text-red-500">Passwords do not match</p>
+                  )}
+                </div>
+              )}
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={
+                  isLoading || 
+                  (!isLoginView && (!passwordValid || !passwordMatch || !confirmPassword))
+                }
+              >
                 {isLoading ? (
                   <>
                     <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
