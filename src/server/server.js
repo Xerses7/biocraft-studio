@@ -1,8 +1,7 @@
-// Aggiornamento di src/server/server.js
 
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors'); // È necessario aggiungere cors come dipendenza
+const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3001;
 const query = require('./db');
@@ -29,15 +28,69 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Password validation helper function
+const validatePassword = (password) => {
+  if (!password) {
+    return { valid: false, message: "Password is required" };
+  }
+  
+  if (password.length < 6) {
+    return { valid: false, message: "Password must be at least 6 characters long" };
+  }
+  
+  // Check additional security rules
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  
+  if (!(hasUpperCase && hasLowerCase && hasNumbers)) {
+    return { 
+      valid: false, 
+      message: "Password must include at least one uppercase letter, one lowercase letter, and one number" 
+    };
+  }
+  
+  return { valid: true, message: "" };
+};
+
 // Auth routes
 app.post('/signup', async (req, res, next) => {
-  const { email, password } = req.body;
+  const { email, password, confirmPassword } = req.body;
   
+  // Validate required fields
   if (!email || !password) {
     return res.status(400).json({ message: 'Email and password are required' });
   }
   
+  // Server-side email validation
+  if (!email.includes('@')) {
+    return res.status(400).json({ message: 'Invalid email format' });
+  }
+  
+  // Server-side password validation
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ message: passwordValidation.message });
+  }
+  
+  // Check if passwords match (if confirmPassword is provided)
+  if (confirmPassword !== undefined && password !== confirmPassword) {
+    return res.status(400).json({ message: 'Passwords do not match' });
+  }
+  
   try {
+    // Check if user already exists
+    const { data: existingUsers } = await supabase
+      .from('user_profiles')
+      .select('email')
+      .eq('email', email)
+      .limit(1);
+      
+    if (existingUsers && existingUsers.length > 0) {
+      return res.status(409).json({ message: 'An account with this email already exists' });
+    }
+    
+    // Register user with Supabase Auth
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

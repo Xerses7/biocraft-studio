@@ -46,11 +46,10 @@ interface AuthSession {
 
 // --- !!! IMPORTANT: Replace with your actual backend URL !!! ---
 // Use an environment variable in a real app: process.env.NEXT_PUBLIC_BACKEND_URL
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL; // e.g., "https://your-forwarded-url.firebase.studio" or "http://localhost:3001"
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'; 
 // ---
 
-// Componenti per l'autenticazione sociale
-
+// Component for social authentication icons
 type IconProps = {
   className?: string;
 }
@@ -86,9 +85,8 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false); // Toggle for showing login form
   const [showPublicApp, setShowPublicApp] = useState(false); // Control visibility of the app for non-logged in users
 
-  // controllo della sessione all'avvio
+  // Check for existing session on load
   useEffect(() => {
-    // Verifica se esiste un token di autenticazione all'avvio
     const checkExistingAuth = async () => {
       const storedAuth = localStorage.getItem('biocraft_auth');
       
@@ -97,29 +95,23 @@ export default function Home() {
       try {
         const parsedAuth = JSON.parse(storedAuth);
         
-        // Verifica se il token è scaduto (se esiste un timestamp)
+        // Check if token is expired (if timestamp exists)
         if (parsedAuth.timestamp) {
           const now = Date.now();
           const tokenAge = now - parsedAuth.timestamp;
-          const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 giorni in millisecondi
+          const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
           
           if (tokenAge > maxAge) {
-            // Token troppo vecchio, eliminiamo
             localStorage.removeItem('biocraft_auth');
             return;
           }
         }
         
-        // Se abbiamo un backend URL, verifichiamo il token
+        // If we have a backend URL, verify token
         if (BACKEND_URL) {
           try {
-            // Se hai un endpoint per verificare il token, usalo qui
-            // const response = await fetch(`${BACKEND_URL}/verify-token`, {
-            //   headers: { Authorization: `Bearer ${parsedAuth.token}` }
-            // });
-            
-            // Se non hai un endpoint specifico, simula una sessione valida
-            // In produzione, dovresti sempre verificare con il backend
+            // Mock session for development purposes
+            // In production, you should verify with the backend
             setSession({
               access_token: 'mock-token',
               token_type: 'bearer',
@@ -133,8 +125,6 @@ export default function Home() {
                 email: parsedAuth.email || 'user@example.com',
               },
             });
-            
-            // In un ambiente di produzione, carica le informazioni utente dal backend
           } catch (error) {
             console.error('Failed to verify token:', error);
             localStorage.removeItem('biocraft_auth');
@@ -187,7 +177,7 @@ export default function Home() {
     // Don't save if not logged in
   }, [savedRecipes, session]); // Watch context recipes AND session
 
-  // Funzione migliorata per validare la password
+  // Improved password validation function
   const validatePassword = (password: string) => {
     if (!password) {
       setPasswordValid(false);
@@ -218,7 +208,7 @@ export default function Home() {
   };
 
   // Handle password confirmation
-  const handleConfirmPasswordChange = (value: SetStateAction<string>) => {
+  const handleConfirmPasswordChange = (value: string) => {
     setConfirmPassword(value);
     // Check if passwords match and update the state
     setPasswordMatch(password === value);
@@ -238,7 +228,7 @@ export default function Home() {
       return;
     }
     
-    // Validate password
+    // Validate password for signup
     if (!isLoginView && !validatePassword(password)) {
       toast({
         variant: "destructive",
@@ -250,7 +240,7 @@ export default function Home() {
     
     setIsLoading(true);
     
-    // Validazione input lato client
+    // Client-side input validation
     if (!email || !email.includes('@')) {
       toast({
         variant: "destructive",
@@ -280,8 +270,12 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include', // Importante per i cookie di sessione
+        body: JSON.stringify({ 
+          email, 
+          password,
+          confirmPassword: !isLoginView ? confirmPassword : undefined
+        }),
+        credentials: 'include', // Important for session cookies
       });
 
       const data = await response.json();
@@ -312,6 +306,7 @@ export default function Home() {
         setIsLoginView(true); // Switch to login view after signup
         setEmail('');
         setPassword('');
+        setConfirmPassword('');
       }
 
     } catch (error: any) {
@@ -332,7 +327,7 @@ export default function Home() {
     try {
       const url = `${BACKEND_URL}/auth/${provider}`;
       
-      // Simuliamo un login sociale per ora
+      // Simulate social login for now
       setTimeout(() => {
         setSession({
           access_token: 'mock-token',
@@ -374,9 +369,6 @@ export default function Home() {
     setCurrentRecipe(null); // Also clear current recipe context
     setShowPublicApp(false); // Hide the app view
     toast({ title: "Logged Out", description: "You have been logged out successfully." });
-    // Optionally clear email/password fields if needed
-    // setEmail('');
-    // setPassword('');
   };
 
   // --- Recipe Handling ---
@@ -716,7 +708,14 @@ export default function Home() {
             <Button
               variant="link"
               className="w-full"
-              onClick={() => setIsLoginView(!isLoginView)}
+              onClick={() => {
+                setIsLoginView(!isLoginView);
+                // Reset validation states when switching views
+                setPasswordValid(true);
+                setPasswordMatch(true);
+                setPasswordMessage('');
+                setConfirmPassword('');
+              }}
               disabled={isLoading}
             >
               {isLoginView
