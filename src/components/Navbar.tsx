@@ -15,21 +15,22 @@ export function Navbar() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogout = async () => {
+    if (isLoading) return; // Prevent multiple clicks
+    
     setIsLoading(true);
+    
     try {
+      // The logout function in AuthContext now handles errors internally
+      // and always completes the logout process locally
       await logout();
-      toast({
-        title: "Logged Out",
-        description: "You have been logged out successfully."
-      });
-      router.push('/');
+      
+      // We don't need to show a success toast here since AuthContext already does that
     } catch (error) {
-      console.error('Logout error:', error);
-      toast({
-        variant: "destructive",
-        title: "Logout Failed",
-        description: "Failed to log out. Please try again."
-      });
+      // This catch block should rarely run since AuthContext handles most errors
+      console.log('Unexpected error during logout:', error);
+      
+      // Ensure the user can still navigate away even if something goes wrong
+      router.push('/');
     } finally {
       setIsLoading(false);
     }
