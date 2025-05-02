@@ -36,6 +36,7 @@ export default function AccountPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editableProfile, setEditableProfile] = useState<Partial<UserProfile>>({});
+  const [fetchError, setFetchError] = useState<string | null>(null);
   
   // Password change fields
   const [currentPassword, setCurrentPassword] = useState('');
@@ -54,22 +55,32 @@ export default function AccountPage() {
   // Fetch user profile data when component mounts
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!session) {
+      if (!session || !session.access_token) {
+        console.log('No session or access token available');
         setIsLoading(false);
+        setFetchError('You need to be logged in to view this page');
         return;
       }
       
       try {
-        const response = await fetch(`${BACKEND_URL}/user/profile`, {
+        // Make sure we're using the correct backend URL
+        const apiUrl = `${BACKEND_URL}/user/profile`;
+        console.log('Fetching profile from:', apiUrl);
+        
+        const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
+          // Add to help with CORS issues
+          credentials: 'include',
         });
         
         if (!response.ok) {
-          throw new Error('Failed to fetch user profile');
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Profile API error:', response.status, errorData);
+          throw new Error(errorData.message || `API responded with status: ${response.status}`);
         }
         
         const data = await response.json();
@@ -78,24 +89,35 @@ export default function AccountPage() {
           full_name: data.profile.full_name || '',
           organization: data.profile.organization || '',
         });
-      } catch (error) {
+        setFetchError(null);
+      } catch (error: any) {
         console.error('Error fetching user profile:', error);
+        setFetchError(error.message || 'Failed to load your profile information');
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: 'Failed to load your profile information.',
+          description: 'Failed to load your profile information. Please try again later.',
         });
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchUserProfile();
-  }, [session, toast]);
+    if (isAuthenticated && session) {
+      fetchUserProfile();
+    }
+  }, [session, toast, isAuthenticated]);
   
   // Handle profile update
   const handleProfileUpdate = async () => {
-    if (!session || !userProfile) return;
+    if (!session || !userProfile || !session.access_token) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Authentication required. Please log in again.',
+      });
+      return;
+    }
     
     setIsLoading(true);
     
@@ -107,10 +129,12 @@ export default function AccountPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(editableProfile),
+        credentials: 'include',
       });
       
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `API responded with status: ${response.status}`);
       }
       
       const data = await response.json();
@@ -125,12 +149,12 @@ export default function AccountPage() {
       });
       
       setIsEditing(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to update your profile information.',
+        description: error.message || 'Failed to update your profile information.',
       });
     } finally {
       setIsLoading(false);
@@ -140,6 +164,15 @@ export default function AccountPage() {
   // Handle password change
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!session || !session.access_token) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Authentication required. Please log in again.',
+      });
+      return;
+    }
     
     // Validate passwords
     if (newPassword !== confirmPassword) {
@@ -159,19 +192,20 @@ export default function AccountPage() {
       const response = await fetch(`${BACKEND_URL}/user/change-password`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           current_password: currentPassword,
           new_password: newPassword,
         }),
+        credentials: 'include',
       });
       
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to change password');
+        throw new Error(data.message || `API responded with status: ${response.status}`);
       }
       
       // Clear form
@@ -220,6 +254,22 @@ export default function AccountPage() {
     });
   };
   
+  // Retry profile fetch
+  const handleRetryFetch = () => {
+    setIsLoading(true);
+    setFetchError(null);
+    
+    // Force re-mount effect
+    const timer = setTimeout(() => {
+      if (isAuthenticated && session) {
+        // This will trigger the useEffect again
+        router.refresh();
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  };
+  
   if (authLoading || isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -231,6 +281,26 @@ export default function AccountPage() {
   
   if (!isAuthenticated) {
     return null; // Will redirect via useEffect
+  }
+  
+  // Show error state with retry option
+  if (fetchError) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-md mx-auto bg-card p-6 rounded-lg border shadow-sm">
+          <h2 className="text-xl font-semibold mb-2">Unable to load profile</h2>
+          <p className="text-muted-foreground mb-4">{fetchError}</p>
+          <div className="flex gap-4">
+            <Button onClick={handleRetryFetch}>
+              Retry
+            </Button>
+            <Button variant="outline" onClick={() => router.push('/')}>
+              Go to Home
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
   
   return (
