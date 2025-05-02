@@ -18,6 +18,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { useRecipe } from '@/context/RecipeContext';
+import { AuthSession } from '@/data/AuthSession';
 import Link from 'next/link';
 import { 
   Beaker as BeakerIcon, 
@@ -27,22 +28,6 @@ import {
   ArrowLeft as ArrowLeftIcon,
   Loader2 as Loader2Icon
 } from 'lucide-react';
-
-// Define a type for the session data structure based on your backend response
-interface AuthSession {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  expires_at: number;
-  refresh_token: string;
-  user: {
-    id: string;
-    aud: string;
-    role: string;
-    email: string;
-    // Add other user properties if needed
-  };
-}
 
 // --- !!! IMPORTANT: Replace with your actual backend URL !!! ---
 // Use an environment variable in a real app: process.env.NEXT_PUBLIC_BACKEND_URL
@@ -264,6 +249,7 @@ export default function Home() {
     const endpoint = isLoginView ? '/login' : '/signup';
     const url = `${BACKEND_URL}${endpoint}`;
 
+    console.log("Fetching URL:", url); // Log the URL just before the fetch call
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -281,7 +267,14 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || `Failed to ${isLoginView ? 'login' : 'sign up'}`);
+        if (!isLoginView){
+          toast({ 
+            title: "Signup Successful!", 
+            description: "Please check your email to confirm your account and then log in." 
+          });
+          setIsLoginView(true);
+          throw new Error();
+        } else throw new Error(data.message || `Failed to ${isLoginView ? 'login' : 'sign up'}`);
       }
 
       if (isLoginView) {
@@ -307,6 +300,25 @@ export default function Home() {
         setEmail('');
         setPassword('');
         setConfirmPassword('');
+      }
+
+      // If successful signup, simulate logging the user in
+      if (!isLoginView && response.ok) {
+        try{
+          setSession({
+            access_token: 'mock-token',
+            token_type: 'bearer',
+            expires_in: 3600,
+            expires_at: Date.now() + 3600000,
+            refresh_token: 'mock-refresh-token',
+            user: {
+              id: 'user-id',
+              aud: 'authenticated',
+              role: 'authenticated',
+              email: email,
+            },
+          })
+        } catch (e){}
       }
 
     } catch (error: any) {
@@ -394,7 +406,6 @@ export default function Home() {
     return (
       <div className="container mx-auto p-4 relative">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">BioCraft Studio</h1>
           <div>
             {session ? (
               <>

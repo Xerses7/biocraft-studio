@@ -54,6 +54,7 @@ const validatePassword = (password) => {
 };
 
 // Auth routes
+// Updated signup endpoint in server.js
 app.post('/signup', async (req, res, next) => {
   const { email, password, confirmPassword } = req.body;
   
@@ -101,9 +102,22 @@ app.post('/signup', async (req, res, next) => {
     
     if (error) throw error;
     
-    // Create user profile in custom table
+    // Create user profile in custom table using the admin client
     if (data.user) {
-      await supabase
+      // Create a service role client that can bypass RLS policies
+      const serviceRoleClient = createClient(
+        supabaseUrl,
+        process.env.SUPABASE_SERVICE_ROLE_KEY, // Make sure this environment variable is set
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+      
+      // Use the admin client with service role key to insert the profile
+      const { error: profileError } = await serviceRoleClient
         .from('user_profiles')
         .insert([
           { 
@@ -113,6 +127,12 @@ app.post('/signup', async (req, res, next) => {
             updated_at: new Date()
           }
         ]);
+        
+      if (profileError) {
+        console.error('Error creating user profile:', profileError);
+        // Continue with signup even if profile creation fails
+        // The profile can be created later when the user logs in
+      }
     }
     
     res.status(201).json({ 
@@ -142,15 +162,49 @@ app.post('/login', async (req, res, next) => {
     
     if (error) throw error;
 
-    // Update last login time
+    // Create a service role client that can bypass RLS policies
+    const serviceRoleClient = createClient(
+      supabaseUrl,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+    
+    // Check if user profile exists
     if (data.user) {
-      await supabase
+      const { data: userProfiles } = await serviceRoleClient
         .from('user_profiles')
-        .update({ 
-          last_login: new Date(),
-          updated_at: new Date()
-        })
-        .match({ user_id: data.user.id });
+        .select('user_id')
+        .eq('user_id', data.user.id)
+        .limit(1);
+      
+      if (!userProfiles || userProfiles.length === 0) {
+        // Create the user profile if it doesn't exist
+        await serviceRoleClient
+          .from('user_profiles')
+          .insert([
+            { 
+              user_id: data.user.id, 
+              email: data.user.email,
+              created_at: new Date(),
+              updated_at: new Date(),
+              last_login: new Date()
+            }
+          ]);
+      } else {
+        // Update last login time
+        await serviceRoleClient
+          .from('user_profiles')
+          .update({ 
+            last_login: new Date(),
+            updated_at: new Date()
+          })
+          .eq('user_id', data.user.id);
+      }
     }
 
     res.json({ 
@@ -164,6 +218,7 @@ app.post('/login', async (req, res, next) => {
     });
   }
 });
+
 
 // Social login redirects
 app.get('/auth/google', (req, res) => {
