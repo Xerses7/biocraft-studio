@@ -54,7 +54,7 @@ export function Navbar() {
               {`${session.user.email}`}
             </span>
             <Link href="/recipe" className="hover:underline">
-              My Recipes
+              Saved recipes
             </Link>
             <Link href="/account" className="hover:underline">
               Account

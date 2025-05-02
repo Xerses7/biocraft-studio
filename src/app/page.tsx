@@ -344,18 +344,17 @@ export default function Home() {
           <TabsList className="mb-4">
             <TabsTrigger value="generate">Recipe Generation</TabsTrigger>
             <TabsTrigger value="improve">Recipe Improvement</TabsTrigger>
-            {showPastRecipes && <TabsTrigger value="past">Past Recipes</TabsTrigger>}
+            {showPastRecipes && <TabsTrigger value="saved">Saved</TabsTrigger>}
           </TabsList>
           <TabsContent value="generate">
             <RecipeGenerator />
           </TabsContent>
           <TabsContent value="improve">
             <RecipeImprovement />
-          </TabsContent>
-          {showPastRecipes && (
-            <TabsContent value="past">
+          </TabsContent>{showPastRecipes && (
+            <TabsContent value="saved">
               <div>
-                <h2 className="text-xl font-semibold mb-2">Past Recipes</h2>
+                <h2 className="text-xl font-semibold mb-2">Saved Recipes</h2>
                 {savedRecipes && savedRecipes.length > 0 ? (
                   <div className="rounded-md border">
                     <Table>
