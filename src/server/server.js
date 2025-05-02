@@ -1,4 +1,3 @@
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -54,7 +53,6 @@ const validatePassword = (password) => {
 };
 
 // Auth routes
-// Updated signup endpoint in server.js
 app.post('/signup', async (req, res, next) => {
   const { email, password, confirmPassword } = req.body;
   
@@ -102,22 +100,9 @@ app.post('/signup', async (req, res, next) => {
     
     if (error) throw error;
     
-    // Create user profile in custom table using the admin client
+    // Create user profile in custom table
     if (data.user) {
-      // Create a service role client that can bypass RLS policies
-      const serviceRoleClient = createClient(
-        supabaseUrl,
-        process.env.SUPABASE_SERVICE_ROLE_KEY, // Make sure this environment variable is set
-        {
-          auth: {
-            autoRefreshToken: false,
-            persistSession: false
-          }
-        }
-      );
-      
-      // Use the admin client with service role key to insert the profile
-      const { error: profileError } = await serviceRoleClient
+      await supabase
         .from('user_profiles')
         .insert([
           { 
@@ -127,12 +112,6 @@ app.post('/signup', async (req, res, next) => {
             updated_at: new Date()
           }
         ]);
-        
-      if (profileError) {
-        console.error('Error creating user profile:', profileError);
-        // Continue with signup even if profile creation fails
-        // The profile can be created later when the user logs in
-      }
     }
     
     res.status(201).json({ 
@@ -162,49 +141,15 @@ app.post('/login', async (req, res, next) => {
     
     if (error) throw error;
 
-    // Create a service role client that can bypass RLS policies
-    const serviceRoleClient = createClient(
-      supabaseUrl,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
-    
-    // Check if user profile exists
+    // Update last login time
     if (data.user) {
-      const { data: userProfiles } = await serviceRoleClient
+      await supabase
         .from('user_profiles')
-        .select('user_id')
-        .eq('user_id', data.user.id)
-        .limit(1);
-      
-      if (!userProfiles || userProfiles.length === 0) {
-        // Create the user profile if it doesn't exist
-        await serviceRoleClient
-          .from('user_profiles')
-          .insert([
-            { 
-              user_id: data.user.id, 
-              email: data.user.email,
-              created_at: new Date(),
-              updated_at: new Date(),
-              last_login: new Date()
-            }
-          ]);
-      } else {
-        // Update last login time
-        await serviceRoleClient
-          .from('user_profiles')
-          .update({ 
-            last_login: new Date(),
-            updated_at: new Date()
-          })
-          .eq('user_id', data.user.id);
-      }
+        .update({ 
+          last_login: new Date(),
+          updated_at: new Date()
+        })
+        .match({ user_id: data.user.id });
     }
 
     res.json({ 
@@ -219,6 +164,215 @@ app.post('/login', async (req, res, next) => {
   }
 });
 
+// Reset password endpoint
+app.post('/reset-password', async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' });
+  }
+  
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:9002'}/reset-password`,
+    });
+    
+    if (error) throw error;
+    
+    // Don't confirm if email exists for security reasons
+    res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    // Still return 200 to not reveal if email exists
+    res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
+  }
+});
+
+// New password endpoint after reset
+app.post('/new-password', async (req, res) => {
+  const { password, token } = req.body;
+  
+  if (!password || !token) {
+    return res.status(400).json({ message: 'Password and token are required' });
+  }
+  
+  // Validate password
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ message: passwordValidation.message });
+  }
+  
+  try {
+    const { error } = await supabase.auth.updateUser({ 
+      password 
+    });
+    
+    if (error) throw error;
+    
+    res.json({ message: 'Password updated successfully. You can now log in with your new password.' });
+  } catch (error) {
+    console.error('New password error:', error);
+    res.status(error.status || 400).json({ 
+      message: error.message || 'Error updating password' 
+    });
+  }
+});
+
+// User profile endpoints
+app.get('/user/profile', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    // Get user from auth
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError) throw userError;
+    
+    // Get profile from database
+    const { data: profileData, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', userData.user.id)
+      .single();
+    
+    if (profileError && profileError.code !== 'PGRST116') {
+      // PGRST116 is the "no rows returned" error, which we handle below
+      throw profileError;
+    }
+    
+    // If no profile exists yet, create one
+    if (!profileData) {
+      const newProfile = {
+        user_id: userData.user.id,
+        email: userData.user.email,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+      
+      const { data: newProfileData, error: newProfileError } = await supabase
+        .from('user_profiles')
+        .insert([newProfile])
+        .select('*')
+        .single();
+      
+      if (newProfileError) throw newProfileError;
+      
+      return res.json({ profile: newProfileData });
+    }
+    
+    res.json({ profile: profileData });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(error.status || 401).json({ 
+      message: error.message || 'Error retrieving user profile' 
+    });
+  }
+});
+
+// Update user profile
+app.patch('/user/profile', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  const updateData = req.body;
+  
+  // Remove fields that shouldn't be updated directly
+  delete updateData.user_id;
+  delete updateData.email;
+  delete updateData.created_at;
+  
+  // Add updated timestamp
+  updateData.updated_at = new Date();
+  
+  try {
+    // Get user from auth
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError) throw userError;
+    
+    // Update profile
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from('user_profiles')
+      .update(updateData)
+      .match({ user_id: userData.user.id })
+      .select('*')
+      .single();
+    
+    if (updateError) throw updateError;
+    
+    res.json({ 
+      message: 'Profile updated successfully',
+      profile: updatedProfile
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(error.status || 400).json({ 
+      message: error.message || 'Error updating user profile' 
+    });
+  }
+});
+
+// Change password
+app.post('/user/change-password', async (req, res) => {
+  const { current_password, new_password } = req.body;
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  
+  if (!current_password || !new_password) {
+    return res.status(400).json({ message: 'Current password and new password are required' });
+  }
+  
+  // Validate new password
+  const passwordValidation = validatePassword(new_password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ message: passwordValidation.message });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    // First, verify the current password by attempting to sign in
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError) throw userError;
+    
+    const email = userData.user.email;
+    
+    // Verify current password
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password: current_password,
+    });
+    
+    if (signInError) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+    
+    // Update the password
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: new_password,
+    });
+    
+    if (updateError) throw updateError;
+    
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(error.status || 400).json({ 
+      message: error.message || 'Error changing password' 
+    });
+  }
+});
 
 // Social login redirects
 app.get('/auth/google', (req, res) => {

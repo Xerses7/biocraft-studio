@@ -27,6 +27,7 @@ interface AuthContextType {
   signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   socialLogin: (provider: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +49,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
           const parsedAuth = JSON.parse(storedAuth);
           
+          // Check if token is expired (if timestamp exists)
+          if (parsedAuth.timestamp) {
+            const now = Date.now();
+            const tokenAge = now - parsedAuth.timestamp;
+            const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+            
+            if (tokenAge > maxAge) {
+              console.log('Stored token expired');
+              localStorage.removeItem('biocraft_auth');
+              setIsLoading(false);
+              return;
+            }
+          }
+          
           // Validate stored session token against backend
           const response = await fetch(`${BACKEND_URL}/user`, {
             method: 'GET',
@@ -58,7 +73,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
           if (response.ok) {
             const data = await response.json();
-            setSession(data.session);
+            
+            // Reconstruct session from stored token and user data
+            const reconstructedSession = {
+              access_token: parsedAuth.token,
+              token_type: 'bearer',
+              expires_in: 3600, // Default expiration
+              expires_at: parsedAuth.timestamp + (3600 * 1000),
+              refresh_token: parsedAuth.refresh_token || '',
+              user: data.user
+            };
+            
+            setSession(reconstructedSession);
           } else {
             // If token is invalid, remove from storage
             localStorage.removeItem('biocraft_auth');
@@ -99,6 +125,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Store session in localStorage
       localStorage.setItem('biocraft_auth', JSON.stringify({
         token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
         timestamp: Date.now(),
       }));
       
@@ -106,6 +133,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         title: 'Welcome back!',
         description: 'You have successfully signed in.',
       });
+      
+      return data.session;
       
     } catch (error: any) {
       toast({
@@ -141,6 +170,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         title: 'Account created',
         description: 'Please check your email to verify your account.',
       });
+      
+      return data;
       
     } catch (error: any) {
       toast({
@@ -200,6 +231,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch(`${BACKEND_URL}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Password reset request failed');
+      }
+      
+      toast({
+        title: 'Password Reset Email Sent',
+        description: 'If an account exists with this email, you will receive a password reset link.',
+      });
+      
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Password Reset Failed',
+        description: error.message || 'Failed to send password reset email',
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -210,6 +276,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signup,
         logout,
         socialLogin,
+        resetPassword,
       }}
     >
       {children}

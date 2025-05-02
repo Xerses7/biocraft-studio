@@ -6,14 +6,14 @@ import { jsPDF } from 'jspdf';
 import { useEffect, useState } from 'react';
 import { useToast } from "@/hooks/use-toast"
 import { useRecipe } from '@/context/RecipeContext';
-import { useAuth } from '@/context/AuthContext'; // Importa il nostro contesto di autenticazione
+import { useAuth } from '@/context/AuthContext';
 
 export default function RecipePage() {
   const router = useRouter();
   // Get context functions and state
   const { currentRecipe, setCurrentRecipe, savedRecipes, setSavedRecipes } = useRecipe();
   const [recipeData, setRecipeData] = useState<any>(null);
-  const { session } = useAuth(); // Usa il nostro hook personalizzato invece di useSession
+  const { isAuthenticated } = useAuth(); // Use isAuthenticated from context
   const { toast } = useToast()
   const [isRecipeSaved, setIsRecipeSaved] = useState(false);
 
@@ -37,7 +37,7 @@ export default function RecipePage() {
       setRecipeData(null);
     }
 
-    // Check if the *parsed* recipe exists in the context's savedRecipes array
+    // Check if the parsed recipe exists in the context's savedRecipes array
     if (parsedRecipe && Array.isArray(savedRecipes)) {
         const recipeString = JSON.stringify(parsedRecipe); // Ensure consistent comparison
         setIsRecipeSaved(savedRecipes.some(recipe => JSON.stringify(recipe) === recipeString));
@@ -50,7 +50,7 @@ export default function RecipePage() {
   const downloadPdf = () => {
     if (!recipeData) return; // Add check
     const pdf = new jsPDF();
-    // Improve PDF content generation (example)
+    // Improve PDF content generation
     pdf.setFontSize(16);
     pdf.text(recipeData.recipeName || "Recipe Details", 10, 10);
     pdf.setFontSize(12);
@@ -72,7 +72,7 @@ export default function RecipePage() {
     // Check against context state using stringify for reliable comparison
     const recipeString = JSON.stringify(recipeData);
     if (!savedRecipes.some((recipe: any) => JSON.stringify(recipe) === recipeString)) {
-      // Update the CONTEXT state - this is the correct way
+      // Update the CONTEXT state
       setSavedRecipes([...savedRecipes, recipeData]);
       
       toast({
@@ -92,37 +92,6 @@ export default function RecipePage() {
     router.push('/');
   };
 
-  const renderRecipeSection = (content: any): React.ReactNode => {
-    if (Array.isArray(content)) {
-      return (
-        <div>
-          {content.map((item, index) => (
-            <div key={index} className="mb-2">
-              {renderRecipeSection(item)}
-            </div>
-          ))}
-        </div>
-      );
-    } else if (typeof content === 'object' && content !== null) {
-      return (
-        <div>
-          {Object.entries(content).map(([key, value]) => (
-            <div key={key} className="mb-4">
-              <h4 className="font-semibold">{key}:</h4>
-              <div>{renderRecipeSection(value)}</div>
-            </div>
-          ))}
-        </div>
-      );
-    } else if (typeof content === 'string') {
-      return <p>{content}</p>
-    } else if (typeof content === 'number') {
-      return <p>{content.toString()}</p>;
-    } else {
-      return null;
-    }
-  };
-
   return (
     <div className="container mx-auto py-8">
       {recipeData ? (
@@ -134,7 +103,7 @@ export default function RecipePage() {
             <h3 className="text-xl font-semibold mb-2">Materials</h3> 
             {recipeData.Materials && recipeData.Materials.length > 0 ? (
               <ul className="list-disc pl-5"> 
-                {recipeData.Materials.map((material: any, index: any) => (
+                {recipeData.Materials.map((material: any, index: number) => (
                   <li key={index}>
                     {material.name} - {material.quantity}
                     {material.supplier && <span> (Supplier: {material.supplier})</span>}
@@ -147,11 +116,11 @@ export default function RecipePage() {
           <div className="recipe-procedure mb-4">
             <h3 className="text-xl font-semibold mb-2">Procedure</h3> 
               {recipeData.Procedure && recipeData.Procedure.length > 0 ? (
-                recipeData.Procedure.map((proc: any, procIndex: any) => (
+                recipeData.Procedure.map((proc: any, procIndex: number) => (
                   <div key={procIndex} className="mb-4"> 
                     <h4 className="font-semibold">{procIndex + 1}. {proc.title}</h4> 
                     <ul className="list-decimal pl-6 mt-1">
-                      {proc.steps.map((step: any, stepIndex: any) => (
+                      {proc.steps.map((step: string, stepIndex: number) => (
                         <li key={stepIndex}>{step}</li>
                       ))}
                     </ul>
@@ -164,7 +133,7 @@ export default function RecipePage() {
           <div className="recipe-troubleshooting mb-4"> 
            <h3 className="text-xl font-semibold mb-2">Troubleshooting</h3> 
             {recipeData.Troubleshooting && recipeData.Troubleshooting.length > 0 ? (
-              recipeData.Troubleshooting.map((item: any, index: any) => (
+              recipeData.Troubleshooting.map((item: any, index: number) => (
                 <div key={index} className="mb-2">
                   <p><strong>Issue:</strong> {item.issue}</p>
                   <p><strong>Solution:</strong> {item.solution}</p>
@@ -178,7 +147,7 @@ export default function RecipePage() {
            <h3 className="text-xl font-semibold mb-2">Notes</h3>
             {recipeData.Notes && recipeData.Notes.length > 0 ? (
               <ul className="list-disc pl-5">
-                {recipeData.Notes.map((item:any, index:any) => (
+                {recipeData.Notes.map((item: any, index: number) => (
                   <li key={index}>{item.note}</li>
                 ))}
               </ul>
@@ -191,10 +160,13 @@ export default function RecipePage() {
           <p className="text-center text-gray-600">No recipe selected or loaded.</p> // Message when no recipe
       )}
 
-      {recipeData && ( // Solo mostra i pulsanti se ci sono dati della ricetta
+      {recipeData && ( // Only show the buttons if there are recipe data
          <div className="flex gap-4 mt-4">
-           { session ? ( <Button onClick={downloadPdf} disabled={!recipeData}>Download as PDF</Button>) : null}
-           {session ? ( // Verifica se l'utente è autenticato
+           {isAuthenticated && (
+             <Button onClick={downloadPdf} disabled={!recipeData}>Download as PDF</Button>
+           )}
+           
+           {isAuthenticated ? (
              <Button onClick={handleSaveRecipe} disabled={isRecipeSaved || !recipeData}>
                {isRecipeSaved ? "Recipe Saved" : "Save Recipe"}
              </Button>
@@ -206,18 +178,18 @@ export default function RecipePage() {
                    description: "Please log in to save recipes",
                    variant: "default"
                  });
-                 router.push('/');
+                 router.push('/?login=true'); // Add query parameter for login form
                }}
              >
                Login to Save
              </Button>
            )}
+           
            <Button variant="outline" onClick={handleDiscardRecipe}> 
              Discard Recipe
            </Button>
          </div>
       )}
-      
     </div>
   );
 }
