@@ -243,23 +243,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     
     // First, clean up local state regardless of API call result
-    // This ensures the user is always logged out locally
+    console.log('Starting logout process - clearing local state');
     setSession(null);
     localStorage.removeItem('biocraft_auth');
     
     // Then attempt to communicate with the backend, but don't block on it
     if (session?.access_token) {
-      // Use a fire-and-forget approach to prevent blocking on network issues
-      fetch(`${BACKEND_URL}/signout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        signal: AbortSignal.timeout(5000), // 5 second timeout
-      }).catch(error => {
-        // Just log the error, don't affect the logout flow
-        console.log('Backend signout notification failed, but local logout completed');
-      });
+      const signoutUrl = `${BACKEND_URL}/signout`;
+      console.log(`Attempting to notify backend at: ${signoutUrl}`);
+      
+      try {
+        // Ensure we're sending the token as a string
+        const tokenString = String(session.access_token).trim();
+        
+        const response = await fetch(signoutUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${tokenString}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include', // Include cookies if needed
+          signal: AbortSignal.timeout(8000), // 8 second timeout
+        });
+        
+        if (response.ok) {
+          console.log('Backend signout successful:', response.status);
+        } else {
+          console.error('Backend signout returned error status:', response.status);
+          try {
+            const errorData = await response.json();
+            console.error('Error details:', errorData);
+          } catch (e) {
+            console.error('Could not parse error response as JSON');
+          }
+        }
+      } catch (error) {
+        console.error('Backend signout notification failed with error:', error);
+      }
+    } else {
+      console.log('No active session token found, skipping backend notification');
     }
     
     // Show success message and redirect
@@ -270,7 +292,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     router.push('/');
     setIsLoading(false);
+    console.log('Logout process completed');
   };
+  
 
   const socialLogin = async (provider: string) => {
     try {

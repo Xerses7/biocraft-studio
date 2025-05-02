@@ -429,17 +429,28 @@ app.get('/user', async (req, res) => {
   }
 });
 
+
 app.post('/signout', async (req, res) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
+    return res.status(401).json({ message: 'This endpoint requires a Bearer token' });
   }
   
   try {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    // Extract the token from the Authorization header
+    const token = authHeader.split(' ')[1];
     
+    // Simply sign out without trying to pass the token to Supabase
+    // The signOut method doesn't need a token parameter
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error('Supabase signout error:', error);
+      throw error;
+    }
+    
+    // Return success message
     res.json({ message: 'Signed out successfully' });
   } catch (error) {
     console.error('Signout error:', error);
@@ -448,6 +459,7 @@ app.post('/signout', async (req, res) => {
     });
   }
 });
+
 
 // Health check endpoint
 app.get('/', async (req, res) => {
