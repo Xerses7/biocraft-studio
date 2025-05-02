@@ -1,14 +1,43 @@
 'use client';
 
-import { useState, useEffect, useRef, SetStateAction } from 'react';
 import Link from 'next/link';
-import {Button} from '@/components/ui/button';
-import { AuthSession } from '@/data/AuthSession';
-import {useAuth} from '@/context/AuthContext'; // Usa il nostro contesto di autenticazione
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
 export function Navbar() {
-  const { isAuthenticated, logout } = useAuth();
-  const [session, setSession] = useState<AuthSession | null>(null); // Store user session
+  const { session, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoading(true);
+    try {
+      await logout();
+      toast({
+        title: "Logged Out",
+        description: "You have been logged out successfully."
+      });
+      router.push('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        variant: "destructive",
+        title: "Logout Failed",
+        description: "Failed to log out. Please try again."
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogin = () => {
+    router.push('/?login=true');
+  };
 
   return (
     <nav className="bg-secondary p-4 flex justify-between items-center">
@@ -19,18 +48,30 @@ export function Navbar() {
         <Link href="/" className="hover:underline">
           Home
         </Link>
-        {session && (
+        {isAuthenticated && session ? (
           <>
+            <span className="text-sm text-muted-foreground">
+              {`${session.user.email}`}
+            </span>
+            <Link href="/recipe" className="hover:underline">
+              My Recipes
+            </Link>
             <Link href="/account" className="hover:underline">
               Account
             </Link>
-            <Button onClick={logout} variant="outline">
-              Log Out
+            <Button onClick={handleLogout} variant="outline" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging out...
+                </>
+              ) : (
+                'Log Out'
+              )}
             </Button>
           </>
-        )}
-        {!isAuthenticated && (
-          <Button onClick={() => window.location.href = '/login'} variant="outline">
+        ) : (
+          <Button onClick={handleLogin} variant="outline">
             Login
           </Button>
         )}
