@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { Loader2, Menu, X } from 'lucide-react';
+import { Loader2, Menu, X, Beaker, Save, User } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export function Navbar() {
@@ -44,7 +44,8 @@ export function Navbar() {
 
   return (
     <nav className="bg-secondary p-4 flex justify-between items-center relative">
-      <Link href="/" className="text-xl font-bold z-10">
+      <Link href="/" className="text-xl font-bold z-10 flex items-center">
+        <Beaker className="mr-2 h-5 w-5" />
         BioCraft Studio
       </Link>
       
@@ -75,7 +76,8 @@ export function Navbar() {
             </div>
             
             <div className="flex flex-col gap-6">
-              <Link href="/" className="hover:underline" onClick={() => setIsMenuOpen(false)}>
+              <Link href="/" className="hover:underline flex items-center" onClick={() => setIsMenuOpen(false)}>
+                <Beaker className="mr-2 h-4 w-4" />
                 Home
               </Link>
               
@@ -85,17 +87,19 @@ export function Navbar() {
                     {`${session.user.email}`}
                   </span>
                   <Link 
-                    href="/recipe" 
-                    className="hover:underline" 
+                    href="/saved-recipes" 
+                    className="hover:underline flex items-center" 
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Saved recipes
+                    <Save className="mr-2 h-4 w-4" />
+                    Saved Recipes
                   </Link>
                   <Link 
                     href="/account" 
-                    className="hover:underline" 
+                    className="hover:underline flex items-center" 
                     onClick={() => setIsMenuOpen(false)}
                   >
+                    <User className="mr-2 h-4 w-4" />
                     Account
                   </Link>
                   <Button onClick={handleLogout} variant="outline" disabled={isLoading} className="w-full">
@@ -120,7 +124,8 @@ export function Navbar() {
       ) : (
         // Desktop view - regular horizontal menu
         <div className="flex items-center gap-4">
-          <Link href="/" className="hover:underline">
+          <Link href="/" className="hover:underline flex items-center">
+            <Beaker className="mr-2 h-4 w-4" />
             Home
           </Link>
           {isAuthenticated && session ? (
@@ -128,10 +133,12 @@ export function Navbar() {
               <span className="text-sm text-muted-foreground">
                 {`${session.user.email}`}
               </span>
-              <Link href="/recipe" className="hover:underline">
-                Saved recipes
+              <Link href="/saved-recipes" className="hover:underline flex items-center">
+                <Save className="mr-2 h-4 w-4" />
+                Saved Recipes
               </Link>
-              <Link href="/account" className="hover:underline">
+              <Link href="/account" className="hover:underline flex items-center">
+                <User className="mr-2 h-4 w-4" />
                 Account
               </Link>
               <Button onClick={handleLogout} variant="outline" disabled={isLoading}>

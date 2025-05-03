@@ -8,14 +8,6 @@ import { ResponsiveTabs, ResponsiveTabsList, ResponsiveTabsTrigger, ResponsiveTa
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { useRecipe } from '@/context/RecipeContext';
@@ -306,26 +298,8 @@ export default function Home() {
     }
   };
 
-  // Recipe Handling
-  const handleRowClick = (recipeData: any) => {
-    if (!isAuthenticated) return; // Prevent action if not logged in
-    setCurrentRecipe(JSON.stringify(recipeData));
-    router.push(`/recipe`);
-  };
-
-  const renderRecipe = (recipe: any, index: number) => {
-    let recipeName = recipe?.recipeName || 'Unnamed Recipe';
-    return (
-      <TableRow key={index} onClick={() => handleRowClick(recipe)} className="cursor-pointer hover:bg-secondary">
-        <TableCell>
-          {recipeName}
-        </TableCell>
-      </TableRow>
-    );
-  };
-
   // Render the application interface
-  const renderAppInterface = (showPastRecipes = false) => {
+  const renderAppInterface = () => {
     return (
       <div className="container mx-auto p-4 relative">
         <div className="flex flex-col md:flex-row justify-between items-center mb-4">
@@ -355,7 +329,6 @@ export default function Home() {
           <ResponsiveTabsList className="mb-4">
             <ResponsiveTabsTrigger value="generate">Recipe Generation</ResponsiveTabsTrigger>
             <ResponsiveTabsTrigger value="improve">Recipe Improvement</ResponsiveTabsTrigger>
-            {showPastRecipes && <ResponsiveTabsTrigger value="saved">Saved</ResponsiveTabsTrigger>}
           </ResponsiveTabsList>
           <ResponsiveTabsContent value="generate">
             <RecipeGenerator />
@@ -363,25 +336,6 @@ export default function Home() {
           <ResponsiveTabsContent value="improve">
             <RecipeImprovement />
           </ResponsiveTabsContent>
-          {showPastRecipes && (
-            <ResponsiveTabsContent value="saved">
-              <div>
-                <h2 className="text-xl font-semibold mb-2">Saved Recipes</h2>
-                {savedRecipes && savedRecipes.length > 0 ? (
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[100px]">Recipe Name</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>{savedRecipes.map(renderRecipe)}</TableBody>
-                    </Table>
-                  </div>
-                ) : (<p>No recipes saved yet.</p>)}
-              </div>
-            </ResponsiveTabsContent>
-          )}
         </ResponsiveTabs>
       </div>
     );
@@ -389,7 +343,7 @@ export default function Home() {
 
   // If logged in or in demo mode, show the app interface
   if (isAuthenticated || showPublicApp) {
-    return renderAppInterface(isAuthenticated); // Only show Past Recipes tab if authenticated
+    return renderAppInterface();
   }
 
   // Login/Signup Form
