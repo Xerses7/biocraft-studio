@@ -68,17 +68,22 @@ export default function RecipePage() {
       // Add title and metadata
       pdf.setFontSize(20);
       pdf.setTextColor(0, 128, 128); // Teal color
+      // Using setFont with standard fonts
+      pdf.setFont("helvetica", "bold");
       pdf.text(recipeData.recipeName || "Recipe Details", 20, 20);
       
       pdf.setFontSize(12);
       pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "normal");
       pdf.text(`Created: ${recipeData.dateCreated || new Date().toISOString().split('T')[0]}`, 20, 30);
       pdf.text(`Author: ${recipeData.author || "BioCraft Studio"}`, 20, 38);
       
       // Add description if available
       if (recipeData.description) {
         pdf.setFontSize(11);
+        pdf.setFont("helvetica", "italic");
         pdf.text("Description:", 20, 50);
+        pdf.setFont("helvetica", "normal");
         const splitDescription = pdf.splitTextToSize(recipeData.description, 170);
         pdf.text(splitDescription, 20, 58);
       }
@@ -88,11 +93,13 @@ export default function RecipePage() {
       
       pdf.setFontSize(14);
       pdf.setTextColor(0, 128, 128); // Teal color
+      pdf.setFont("helvetica", "bold");
       pdf.text("Materials", 20, yPos);
       yPos += 10;
       
       pdf.setFontSize(11);
       pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "normal");
       
       if (recipeData.Materials && recipeData.Materials.length > 0) {
         recipeData.Materials.forEach((material: any) => {
@@ -114,19 +121,23 @@ export default function RecipePage() {
       yPos += 5;
       pdf.setFontSize(14);
       pdf.setTextColor(0, 128, 128); // Teal color
+      pdf.setFont("helvetica", "bold");
       pdf.text("Procedure", 20, yPos);
       yPos += 10;
       
       pdf.setFontSize(11);
       pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "normal");
       
       if (recipeData.Procedure && recipeData.Procedure.length > 0) {
         recipeData.Procedure.forEach((proc: any, procIndex: number) => {
           pdf.setFontSize(12);
+          pdf.setFont("helvetica", "bold");
           pdf.text(`${procIndex + 1}. ${proc.title}`, 25, yPos);
           yPos += 8;
           
           pdf.setFontSize(11);
+          pdf.setFont("helvetica", "normal");
           if (proc.steps && proc.steps.length > 0) {
             proc.steps.forEach((step: string, stepIndex: number) => {
               const stepText = `   ${String.fromCharCode(97 + stepIndex)}. ${step}`;
@@ -167,6 +178,7 @@ export default function RecipePage() {
         yPos += 5;
         pdf.setFontSize(14);
         pdf.setTextColor(0, 128, 128); // Teal color
+        pdf.setFont("helvetica", "bold");
         pdf.text("Troubleshooting", 20, yPos);
         yPos += 10;
         
@@ -180,17 +192,17 @@ export default function RecipePage() {
             yPos = 20;
           }
           
-          pdf.setFontStyle('bold');
+          pdf.setFont("helvetica", "bold");
           pdf.text("Issue:", 25, yPos);
-          pdf.setFontStyle('normal');
+          pdf.setFont("helvetica", "normal");
           
           const issueText = pdf.splitTextToSize(item.issue, 155);
           pdf.text(issueText, 45, yPos);
           yPos += (issueText.length * 7) + 2;
           
-          pdf.setFontStyle('bold');
+          pdf.setFont("helvetica", "bold");
           pdf.text("Solution:", 25, yPos);
-          pdf.setFontStyle('normal');
+          pdf.setFont("helvetica", "normal");
           
           const solutionText = pdf.splitTextToSize(item.solution, 155);
           pdf.text(solutionText, 45, yPos);
@@ -209,11 +221,13 @@ export default function RecipePage() {
         yPos += 5;
         pdf.setFontSize(14);
         pdf.setTextColor(0, 128, 128); // Teal color
+        pdf.setFont("helvetica", "bold");
         pdf.text("Notes", 20, yPos);
         yPos += 10;
         
         pdf.setFontSize(11);
         pdf.setTextColor(0, 0, 0);
+        pdf.setFont("helvetica", "normal");
         
         recipeData.Notes.forEach((item: any) => {
           // Check if we need a new page
@@ -229,8 +243,18 @@ export default function RecipePage() {
       }
       
       // Add footer
-      const pageCount = pdf.internal.getNumberOfPages();
+      // Get total number of pages - method differs based on jsPDF version
+      let pageCount;
+      try {
+        // Try newer version method first
+        pageCount = pdf.getNumberOfPages();
+      } catch (err) {
+        console.error("Unable to get page count:", err);
+        pageCount = 0;
+      }
+      
       pdf.setFontSize(10);
+      pdf.setFont("helvetica", "italic");
       
       for (let i = 1; i <= pageCount; i++) {
         pdf.setPage(i);

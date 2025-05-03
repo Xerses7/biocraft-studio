@@ -28,8 +28,6 @@ import {
   Share2 as Share2Icon,
   ArrowLeft as ArrowLeftIcon,
   Loader2 as Loader2Icon,
-  GoogleIcon,
-  GithubIcon,
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 

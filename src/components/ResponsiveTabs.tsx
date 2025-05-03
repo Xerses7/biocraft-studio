@@ -78,7 +78,7 @@ export function ResponsiveTabsList({
   ...props
 }: ResponsiveTabsListProps) {
   const isMobile = useIsMobile();
-  const { value } = React.useContext(ResponsiveTabsContext);
+  const { value, onValueChange } = React.useContext(ResponsiveTabsContext);
   const [isOpen, setIsOpen] = React.useState(false);
   
   // Find the currently selected tab label
@@ -92,12 +92,11 @@ export function ResponsiveTabsList({
 
   if (isMobile) {
     return (
-      <div className="relative mb-4">
+      <div className="relative mb-4" {...props}>
         <button
           className="flex w-full items-center justify-between rounded-md border border-input bg-background px-4 py-2 text-sm font-medium"
           onClick={() => setIsOpen(!isOpen)}
           type="button"
-          {...props}
         >
           <span>{selectedLabel}</span>
           <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -112,12 +111,26 @@ export function ResponsiveTabsList({
             <div className="absolute top-full left-0 z-20 mt-1 w-full rounded-md border bg-popover shadow-md">
               {React.Children.map(children, (child) => {
                 if (React.isValidElement(child)) {
+                  // Get the value from the child
+                  const childValue = child.props.value;
+                  
                   return React.cloneElement(child as React.ReactElement<any>, {
                     onClick: () => {
+                      // Call the original onClick if it exists
                       child.props.onClick?.();
+                      
+                      // Update the tab value through context
+                      onValueChange(childValue);
+                      
+                      // Close the dropdown
                       setIsOpen(false);
                     },
-                    className: "block w-full text-left px-4 py-2 hover:bg-accent hover:text-accent-foreground",
+                    className: cn(
+                      "block w-full text-left px-4 py-2",
+                      value === childValue 
+                        ? "bg-accent text-accent-foreground" 
+                        : "hover:bg-accent/50 hover:text-accent-foreground"
+                    ),
                   });
                 }
                 return child;
