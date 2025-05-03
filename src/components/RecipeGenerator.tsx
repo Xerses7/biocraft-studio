@@ -7,6 +7,7 @@ import {Textarea} from '@/components/ui/textarea';
 import {useRouter} from 'next/navigation';
 import {toast} from "@/hooks/use-toast"
 import {useRecipe} from '@/context/RecipeContext';
+import { Loader2 } from 'lucide-react';
 
 export function RecipeGenerator() {
   const [ingredients, setIngredients] = useState('');
@@ -16,6 +17,15 @@ export function RecipeGenerator() {
   const { setCurrentRecipe } = useRecipe();
 
   const handleGenerateRecipe = async () => {
+    if (!ingredients.trim() || !desiredOutcome.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please provide both ingredients and desired outcome.",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const recipe = await generateBiotechRecipe({
@@ -25,24 +35,12 @@ export function RecipeGenerator() {
 
       if (recipe && recipe.recipe) {
         if (typeof recipe.recipe === 'object' && recipe.recipe !== null) {
-          // It's likely a JavaScript object (or an array, as arrays are objects too)
-          // This block executes if JSON.parse likely succeeded in producing an object/array
           console.log("recipeData is an object:", recipe.recipe);
-          // You can proceed with rendering logic that expects an object, like Object.entries()
-        
         } else if (typeof recipe.recipe === 'string') {
-          // It's still a string, meaning JSON.parse likely failed,
-          // or the original content wasn't JSON.
           console.log("recipeData is still a string:", recipe.recipe);
-          // Display an error or the raw string
-        
         } else if (recipe.recipe === null) {
-          // It's null, likely the initial state or explicitly set after an error
           console.log("recipeData is null.");
-          // Display loading or error message
-        
         } else {
-          // Handle other types if necessary (number, boolean, undefined)
           console.log("recipeData is of type:", typeof recipe.recipe);
         }
 
@@ -67,16 +65,16 @@ export function RecipeGenerator() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-w-3xl mx-auto">
       <div>
-        <label htmlFor="ingredients" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="ingredients" className="block text-sm font-medium text-gray-700 mb-1">
           Ingredients:
         </label>
-        <div className="mt-1">
+        <div>
           <Textarea
             id="ingredients"
             rows={4}
-            className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-md"
+            className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
             placeholder="List your ingredients here..."
             value={ingredients}
             onChange={e => setIngredients(e.target.value)}
@@ -84,22 +82,33 @@ export function RecipeGenerator() {
         </div>
       </div>
       <div>
-        <label htmlFor="desiredOutcome" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="desiredOutcome" className="block text-sm font-medium text-gray-700 mb-1">
           Desired Outcome:
         </label>
-        <div className="mt-1">
+        <div>
           <Textarea
             id="desiredOutcome"
             rows={4}
-            className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-md"
+            className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
             placeholder="Describe the desired outcome of your recipe..."
             value={desiredOutcome}
             onChange={e => setDesiredOutcome(e.target.value)}
           />
         </div>
       </div>
-      <Button onClick={handleGenerateRecipe} disabled={isLoading}>
-        {isLoading ? 'Generating...' : 'Generate Recipe'}
+      <Button 
+        onClick={handleGenerateRecipe} 
+        disabled={isLoading}
+        className="w-full md:w-auto md:self-end"
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Generating...
+          </>
+        ) : (
+          'Generate Recipe'
+        )}
       </Button>
     </div>
   );

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { RecipeGenerator } from '@/components/RecipeGenerator';
 import { RecipeImprovement } from '@/components/RecipeImprovement';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ResponsiveTabs, ResponsiveTabsList, ResponsiveTabsTrigger, ResponsiveTabsContent } from '@/components/ResponsiveTabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,8 +27,11 @@ import {
   Sparkles as SparklesIcon, 
   Share2 as Share2Icon,
   ArrowLeft as ArrowLeftIcon,
-  Loader2 as Loader2Icon
+  Loader2 as Loader2Icon,
+  GoogleIcon,
+  GithubIcon,
 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Backend URL
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
@@ -37,6 +40,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:300
 type IconProps = {
   className?: string;
 }
+
 const GoogleIcon = ({ className }: IconProps) => {
   return (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
@@ -56,6 +60,7 @@ export default function Home() {
   const searchParams = useSearchParams();
   const { setCurrentRecipe, savedRecipes, setSavedRecipes } = useRecipe();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   // Use AuthContext
   const { session, isAuthenticated, isLoading: authLoading, login, signup } = useAuth();
@@ -325,38 +330,47 @@ export default function Home() {
   const renderAppInterface = (showPastRecipes = false) => {
     return (
       <div className="container mx-auto p-4 relative">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">BioCraft Studio</h1>
+        <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold mb-2 md:mb-0">BioCraft Studio</h1>
           <div>
             {!isAuthenticated && (
               <>
-                <span className="mr-4 text-sm text-muted-foreground">You're using the demo version</span>
-                <Button variant="outline" onClick={() => {
-                  setShowPublicApp(false);
-                  setShowLogin(true);
-                }}>Login</Button>
+                <span className="mr-4 text-sm text-muted-foreground block md:inline text-center md:text-left">
+                  You're using the demo version
+                </span>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowPublicApp(false);
+                    setShowLogin(true);
+                  }}
+                  className="w-full md:w-auto mt-2 md:mt-0"
+                >
+                  Login
+                </Button>
               </>
             )}
           </div>
         </div>
 
-        <Tabs defaultValue="generate" id="recipe-tabs">
-          <TabsList className="mb-4">
-            <TabsTrigger value="generate">Recipe Generation</TabsTrigger>
-            <TabsTrigger value="improve">Recipe Improvement</TabsTrigger>
-            {showPastRecipes && <TabsTrigger value="saved">Saved</TabsTrigger>}
-          </TabsList>
-          <TabsContent value="generate">
+        <ResponsiveTabs defaultValue="generate" id="recipe-tabs">
+          <ResponsiveTabsList className="mb-4">
+            <ResponsiveTabsTrigger value="generate">Recipe Generation</ResponsiveTabsTrigger>
+            <ResponsiveTabsTrigger value="improve">Recipe Improvement</ResponsiveTabsTrigger>
+            {showPastRecipes && <ResponsiveTabsTrigger value="saved">Saved</ResponsiveTabsTrigger>}
+          </ResponsiveTabsList>
+          <ResponsiveTabsContent value="generate">
             <RecipeGenerator />
-          </TabsContent>
-          <TabsContent value="improve">
+          </ResponsiveTabsContent>
+          <ResponsiveTabsContent value="improve">
             <RecipeImprovement />
-          </TabsContent>{showPastRecipes && (
-            <TabsContent value="saved">
+          </ResponsiveTabsContent>
+          {showPastRecipes && (
+            <ResponsiveTabsContent value="saved">
               <div>
                 <h2 className="text-xl font-semibold mb-2">Saved Recipes</h2>
                 {savedRecipes && savedRecipes.length > 0 ? (
-                  <div className="rounded-md border">
+                  <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -368,9 +382,9 @@ export default function Home() {
                   </div>
                 ) : (<p>No recipes saved yet.</p>)}
               </div>
-            </TabsContent>
+            </ResponsiveTabsContent>
           )}
-        </Tabs>
+        </ResponsiveTabs>
       </div>
     );
   };
@@ -380,7 +394,7 @@ export default function Home() {
     return renderAppInterface(isAuthenticated); // Only show Past Recipes tab if authenticated
   }
 
-  // Login/Signup Form or Password Reset
+  // Login/Signup Form
   if (showLogin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -394,7 +408,7 @@ export default function Home() {
         </Button>
 
         <div className="w-full max-w-md">
-          <div className="w-full max-w-md p-8 space-y-6 bg-card shadow-md rounded-lg border">
+          <div className="w-full max-w-md p-6 sm:p-8 space-y-6 bg-card shadow-md rounded-lg border">
             <div className="flex justify-center mb-2">
               <BeakerIcon className="h-10 w-10 text-primary" />
             </div>
@@ -466,7 +480,7 @@ export default function Home() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap">
                       <Label htmlFor="password">Password</Label>
                       {isLoginView && (
                         <Button 
@@ -603,16 +617,16 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Hero section */}
-      <div className="flex-grow flex flex-col md:flex-row items-center justify-center px-6 py-12">
+      <div className="flex-grow flex flex-col md:flex-row items-center justify-center px-4 py-8 md:px-6 md:py-12">
         {/* Left content */}
-        <div className="md:w-1/2 md:pr-8 mb-8 md:mb-0">
-          <h1 className="text-5xl md:text-6xl font-bold mb-4 text-primary">
+        <div className="md:w-1/2 md:pr-8 mb-8 md:mb-0 text-center md:text-left">
+          <h1 className="text-4xl md:text-6xl font-bold mb-4 text-primary">
             BioCraft Studio
           </h1>
-          <p className="text-xl mb-6 text-gray-600 dark:text-gray-300 max-w-xl">
+          <p className="text-lg md:text-xl mb-6 text-gray-600 dark:text-gray-300 max-w-xl mx-auto md:mx-0">
             Transform your biotech experiments with powerful AI-driven recipe generation and optimization.
           </p>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-4 justify-center md:justify-start">
             <Button 
               onClick={() => setShowLogin(true)} 
               className="text-base px-6 py-5"
@@ -627,7 +641,7 @@ export default function Home() {
               Try Demo
             </Button>
           </div>
-          <div className="mt-6 flex items-center">
+          <div className="mt-6 flex items-center justify-center md:justify-start">
             <div className="flex -space-x-2">
               {/* Sample user avatars - replace with actual images in production */}
               <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs">JD</div>
@@ -635,7 +649,7 @@ export default function Home() {
               <div className="w-8 h-8 rounded-full bg-secondary text-white flex items-center justify-center text-xs">MT</div>
             </div>
             <p className="ml-3 text-sm text-muted-foreground">
-              Joined by 2,000+ researchers and biotech professionals
+              Joined by 2,000+ researchers
             </p>
           </div>
         </div>
@@ -690,7 +704,7 @@ export default function Home() {
           <p className="text-center text-sm text-muted-foreground mb-4">
             Trusted by leading biotech institutions and research labs
           </p>
-          <div className="flex justify-center items-center flex-wrap gap-8 opacity-70">
+          <div className="flex flex-wrap justify-center items-center gap-4 md:gap-8 opacity-70">
             {/* Replace with actual logos */}
             <div className="font-bold text-xl">BioGen</div>
             <div className="font-bold text-xl">GeneWorks</div>
