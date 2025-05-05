@@ -12,7 +12,14 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { useRecipe } from '@/context/RecipeContext';
 import { useAuth } from '@/context/AuthContext';
-import Link from 'next/link';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { 
   Beaker as BeakerIcon, 
   Save as SaveIcon, 
@@ -48,7 +55,14 @@ const GithubIcon = ({ className }: IconProps) => (
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setCurrentRecipe, savedRecipes, setSavedRecipes } = useRecipe();
+  const { 
+    currentRecipe, 
+    setCurrentRecipe, 
+    savedRecipes, 
+    setSavedRecipes, 
+    loadRecipesFromDb,
+    isLoadingRecipes
+  } = useRecipe();
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -67,6 +81,7 @@ export default function Home() {
   const [showPublicApp, setShowPublicApp] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [showPastRecipes, setShowPastRecipes] = useState(false);
 
   // Show login form if login=true is in the URL
   useEffect(() => {
@@ -75,39 +90,21 @@ export default function Home() {
     }
   }, [searchParams]);
 
+  // Check if user is authenticated to show past recipes tab
+  useEffect(() => {
+    setShowPastRecipes(isAuthenticated);
+  }, [isAuthenticated]);
+
   // Load saved recipes when authenticated
   useEffect(() => {
     if (isAuthenticated && session) {
-      const storedRecipes = localStorage.getItem('savedRecipes');
-      if (storedRecipes) {
-        try {
-          const parsedRecipes = JSON.parse(storedRecipes);
-          setSavedRecipes(Array.isArray(parsedRecipes) ? parsedRecipes : []);
-        } catch (error) {
-          console.error("Failed to parse saved recipes:", error);
-          localStorage.removeItem('savedRecipes');
-          setSavedRecipes([]);
-        }
-      } else {
-        setSavedRecipes([]);
-      }
+      // Load recipes from database
+      loadRecipesFromDb();
     } else {
       // Clear recipes if user logs out
       setSavedRecipes([]);
-      localStorage.removeItem('savedRecipes');
     }
-  }, [isAuthenticated, session, setSavedRecipes]);
-
-  // Save recipes to localStorage when they change (if authenticated)
-  useEffect(() => {
-    if (isAuthenticated && savedRecipes.length > 0) {
-      localStorage.setItem('savedRecipes', JSON.stringify(savedRecipes));
-    } else if (isAuthenticated && savedRecipes.length === 0) {
-      if(localStorage.getItem('savedRecipes')) {
-        localStorage.removeItem('savedRecipes');
-      }
-    }
-  }, [savedRecipes, isAuthenticated]);
+  }, [isAuthenticated, session, loadRecipesFromDb, setSavedRecipes]);
 
   // Improved password validation function
   const validatePassword = (password: string) => {
@@ -298,6 +295,12 @@ export default function Home() {
     }
   };
 
+  // Open recipe from Saved Recipes tab
+  const handleOpenSavedRecipe = (recipe: any) => {
+    setCurrentRecipe(JSON.stringify(recipe));
+    router.push('/recipe');
+  };
+
   // Render the application interface
   const renderAppInterface = () => {
     return (
@@ -329,6 +332,9 @@ export default function Home() {
           <ResponsiveTabsList className="mb-4">
             <ResponsiveTabsTrigger value="generate">Recipe Generation</ResponsiveTabsTrigger>
             <ResponsiveTabsTrigger value="improve">Recipe Improvement</ResponsiveTabsTrigger>
+            {showPastRecipes && (
+              <ResponsiveTabsTrigger value="saved">Saved Recipes</ResponsiveTabsTrigger>
+            )}
           </ResponsiveTabsList>
           <ResponsiveTabsContent value="generate">
             <RecipeGenerator />
@@ -336,6 +342,58 @@ export default function Home() {
           <ResponsiveTabsContent value="improve">
             <RecipeImprovement />
           </ResponsiveTabsContent>
+          {showPastRecipes && (
+            <ResponsiveTabsContent value="saved">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Your Saved Recipes</h2>
+                {isLoadingRecipes ? (
+                  <div className="flex justify-center items-center p-6">
+                    <Loader2Icon className="h-6 w-6 animate-spin mr-2" />
+                    <p>Loading your recipes...</p>
+                  </div>
+                ) : savedRecipes && savedRecipes.length > 0 ? (
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Recipe Name</TableHead>
+                          <TableHead className="hidden md:table-cell">Author</TableHead>
+                          <TableHead className="hidden md:table-cell">Created</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {savedRecipes.map((recipe, index) => (
+                          <TableRow 
+                            key={index}
+                            className="cursor-pointer hover:bg-secondary"
+                            onClick={() => handleOpenSavedRecipe(recipe)}
+                          >
+                            <TableCell className="font-medium">
+                              {recipe.recipeName || 'Unnamed Recipe'}
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              {recipe.author || 'BioCraft Studio'}
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              {recipe.dateCreated || 'Unknown'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center p-6 bg-secondary/20 rounded-md">
+                    <p className="text-muted-foreground mb-4">You haven't saved any recipes yet.</p>
+                    <p className="mb-4">Generate a recipe and click "Save Recipe" to add it to your collection.</p>
+                    <Button onClick={() => router.push('/saved-recipes')}>
+                      View Saved Recipes Page
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </ResponsiveTabsContent>
+          )}
         </ResponsiveTabs>
       </div>
     );

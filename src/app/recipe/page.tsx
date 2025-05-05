@@ -21,12 +21,20 @@ import Link from 'next/link';
 export default function RecipePage() {
   const router = useRouter();
   // Get context functions and state
-  const { currentRecipe, setCurrentRecipe, savedRecipes, setSavedRecipes } = useRecipe();
+  const { 
+    currentRecipe, 
+    setCurrentRecipe, 
+    savedRecipes, 
+    setSavedRecipes,
+    saveRecipeToDb,
+    loadRecipesFromDb
+  } = useRecipe();
   const [recipeData, setRecipeData] = useState<any>(null);
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isRecipeSaved, setIsRecipeSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false); 
+  const [isSaving, setIsSaving] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -58,6 +66,7 @@ export default function RecipePage() {
 
   }, [currentRecipe, savedRecipes, toast]);
 
+  // Generate PDF from recipe
   const downloadPdf = async () => {
     if (!recipeData) return;
     
@@ -281,7 +290,8 @@ export default function RecipePage() {
     }
   };
 
-  const handleSaveRecipe = () => {
+  // Save recipe to database and update local state
+  const handleSaveRecipe = async () => {
     if (!recipeData) {
       toast({
         variant: "destructive",
@@ -291,22 +301,28 @@ export default function RecipePage() {
       return;
     }
 
-    // Check against context state using stringify for reliable comparison
-    const recipeString = JSON.stringify(recipeData);
-    if (!savedRecipes.some((recipe: any) => JSON.stringify(recipe) === recipeString)) {
-      // Update the CONTEXT state
-      setSavedRecipes([...savedRecipes, recipeData]);
-      setIsRecipeSaved(true);
+    setIsSaving(true);
+    
+    try {
+      // Save to database using the new context function
+      const success = await saveRecipeToDb(recipeData);
       
+      if (success) {
+        setIsRecipeSaved(true);
+        toast({
+          title: "Recipe Saved!",
+          description: "This recipe has been saved to your account.",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving recipe:", error);
       toast({
-        title: "Recipe Saved!",
-        description: "This recipe has been saved to your saved recipes.",
+        variant: "destructive",
+        title: "Error Saving Recipe",
+        description: "There was a problem saving your recipe. Please try again.",
       });
-    } else {
-      toast({
-        title: "Recipe Already Saved",
-        description: "This recipe is already in your saved recipes.",
-      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -450,12 +466,21 @@ export default function RecipePage() {
         {isAuthenticated ? (
           <Button 
             onClick={handleSaveRecipe} 
-            disabled={isRecipeSaved || !recipeData || isLoading}
+            disabled={isRecipeSaved || !recipeData || isSaving}
             className="w-full sm:w-auto flex items-center justify-center"
             variant={isRecipeSaved ? "outline" : "default"}
           >
-            <Save className="mr-2 h-4 w-4" />
-            {isRecipeSaved ? "Recipe Saved" : "Save Recipe"}
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving Recipe...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                {isRecipeSaved ? "Recipe Saved" : "Save Recipe"}
+              </>
+            )}
           </Button>
         ) : (
           <Button 

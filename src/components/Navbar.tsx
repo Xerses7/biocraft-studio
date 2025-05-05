@@ -83,9 +83,6 @@ export function Navbar() {
               
               {isAuthenticated && session ? (
                 <>
-                  <span className="text-sm text-muted-foreground break-words">
-                    {`${session.user.email}`}
-                  </span>
                   <Link 
                     href="/saved-recipes" 
                     className="hover:underline flex items-center" 
@@ -130,9 +127,6 @@ export function Navbar() {
           </Link>
           {isAuthenticated && session ? (
             <>
-              <span className="text-sm text-muted-foreground">
-                {`${session.user.email}`}
-              </span>
               <Link href="/saved-recipes" className="hover:underline flex items-center">
                 <Save className="mr-2 h-4 w-4" />
                 Saved Recipes

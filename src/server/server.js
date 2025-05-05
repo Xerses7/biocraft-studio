@@ -460,6 +460,146 @@ app.post('/signout', async (req, res) => {
   }
 });
 
+// Endpoint to save a recipe
+app.post('/user/recipes', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const { recipe } = req.body;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  
+  if (!recipe) {
+    return res.status(400).json({ message: 'No recipe data provided' });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    // Get user from auth
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError) throw userError;
+    
+    // Parse recipe if it's a string
+    let recipeData;
+    if (typeof recipe === 'string') {
+      try {
+        recipeData = JSON.parse(recipe);
+      } catch (e) {
+        return res.status(400).json({ message: 'Invalid recipe format' });
+      }
+    } else {
+      recipeData = recipe;
+    }
+    
+    // Save recipe to database
+    const { data: savedRecipe, error: saveError } = await supabase
+      .from('saved_recipes')
+      .insert([{
+        user_id: userData.user.id,
+        recipe_name: recipeData.recipeName || 'Unnamed Recipe',
+        recipe_data: recipeData,
+        category: 'general',
+        is_public: false
+      }])
+      .select('*')
+      .single();
+    
+    if (saveError) throw saveError;
+    
+    res.status(201).json({
+      message: 'Recipe saved successfully',
+      recipe: savedRecipe
+    });
+    
+  } catch (error) {
+    console.error('Save recipe error:', error);
+    res.status(error.status || 500).json({
+      message: error.message || 'Failed to save recipe'
+    });
+  }
+});
+
+// Endpoint to get user's saved recipes
+app.get('/user/recipes', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    // Get user from auth
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError) throw userError;
+    
+    // Get recipes from database
+    const { data: recipes, error: recipesError } = await supabase
+      .from('saved_recipes')
+      .select('*')
+      .eq('user_id', userData.user.id)
+      .order('created_at', { ascending: false });
+    
+    if (recipesError) throw recipesError;
+    
+    // Transform data to return only recipe_data
+    const transformedRecipes = recipes.map(item => item.recipe_data);
+    
+    res.json({
+      recipes: transformedRecipes
+    });
+    
+  } catch (error) {
+    console.error('Get recipes error:', error);
+    res.status(error.status || 500).json({
+      message: error.message || 'Failed to retrieve recipes'
+    });
+  }
+});
+
+// Endpoint to delete a recipe
+app.delete('/user/recipes/:recipeId', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const { recipeId } = req.params;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  
+  if (!recipeId) {
+    return res.status(400).json({ message: 'Recipe ID is required' });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    // Get user from auth
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError) throw userError;
+    
+    // Delete recipe from database
+    const { error: deleteError } = await supabase
+      .from('saved_recipes')
+      .delete()
+      .eq('id', recipeId)
+      .eq('user_id', userData.user.id); // Ensure user can only delete their own recipes
+    
+    if (deleteError) throw deleteError;
+    
+    res.json({
+      message: 'Recipe deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Delete recipe error:', error);
+    res.status(error.status || 500).json({
+      message: error.message || 'Failed to delete recipe'
+    });
+  }
+});
+
 
 // Health check endpoint
 app.get('/', async (req, res) => {
