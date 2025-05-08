@@ -92,8 +92,10 @@ export default function Home() {
 
   // Check if user is authenticated to show past recipes tab
   useEffect(() => {
-    setShowPastRecipes(isAuthenticated);
-  }, [isAuthenticated]);
+    if (showPastRecipes !== isAuthenticated) {
+      setShowPastRecipes(isAuthenticated);
+    }
+  }, [isAuthenticated, showPastRecipes]);
 
   // Load saved recipes when authenticated
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function Home() {
       // Clear recipes if user logs out
       setSavedRecipes([]);
     }
-  }, [isAuthenticated, session, loadRecipesFromDb, setSavedRecipes]);
+  }, [isAuthenticated, session, setSavedRecipes]);
 
   // Improved password validation function
   const validatePassword = (password: string) => {

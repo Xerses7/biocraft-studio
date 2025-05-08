@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -71,6 +71,16 @@ export default function SavedRecipesPage() {
   const [recipeToDelete, setRecipeToDelete] = useState<any>(null);
   const [isRecipeDetailsOpen, setIsRecipeDetailsOpen] = useState(false);
 
+  const initialLoadRef = useRef(false);
+
+  useEffect(() => {
+    if (isAuthenticated && !initialLoadRef.current) {
+      initialLoadRef.current = true;
+      setIsLoading(true);
+      loadRecipesFromDb().finally(() => setIsLoading(false));
+    }
+  }, [isAuthenticated]);
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -85,78 +95,86 @@ export default function SavedRecipesPage() {
       loadRecipesFromDb()
         .finally(() => setIsLoading(false));
     }
-  }, [isAuthenticated, loadRecipesFromDb]);
+  }, [isAuthenticated]);
 
   // Filter and sort recipes when search term, sort options, or savedRecipes change
   useEffect(() => {
-    // First filter the recipes
-    let filtered = [...savedRecipes];
-    
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = savedRecipes.filter(recipe => {
-        // Convert recipe to string if it's not already
-        const recipeData = typeof recipe === 'string' ? JSON.parse(recipe) : recipe;
-        
-        // Check recipe name
-        if (recipeData.recipeName && recipeData.recipeName.toLowerCase().includes(searchLower)) {
-          return true;
-        }
-        
-        // Check description
-        if (recipeData.description && recipeData.description.toLowerCase().includes(searchLower)) {
-          return true;
-        }
-        
-        // Check materials
-        if (recipeData.Materials && recipeData.Materials.length) {
-          const hasMaterial = recipeData.Materials.some(
-            (material: any) => material.name && material.name.toLowerCase().includes(searchLower)
-          );
-          if (hasMaterial) return true;
-        }
-        
-        return false;
-      });
-    }
-    
-    // Then sort the filtered recipes
-    filtered.sort((a, b) => {
-      const aValue = a[sortField] || '';
-      const bValue = b[sortField] || '';
+    // Only process if we have recipes
+    if (savedRecipes.length > 0 || filteredRecipes.length > 0) {
+      // First filter the recipes
+      let filtered = [...savedRecipes];
       
-      // For dates, we need special handling
-      if (sortField === 'dateCreated') {
-        const aDate = aValue ? new Date(aValue).getTime() : 0;
-        const bDate = bValue ? new Date(bValue).getTime() : 0;
-        
-        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        filtered = savedRecipes.filter(recipe => {
+          // Convert recipe to string if it's not already
+          const recipeData = typeof recipe === 'string' ? JSON.parse(recipe) : recipe;
+          
+          // Check recipe name
+          if (recipeData.recipeName && recipeData.recipeName.toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          // Check description
+          if (recipeData.description && recipeData.description.toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          // Check materials
+          if (recipeData.Materials && recipeData.Materials.length) {
+            const hasMaterial = recipeData.Materials.some(
+              (material: any) => material.name && material.name.toLowerCase().includes(searchLower)
+            );
+            if (hasMaterial) return true;
+          }
+          
+          return false;
+        });
       }
+    
+      // Then sort the filtered recipes
+      filtered.sort((a, b) => {
+        const aValue = a[sortField] || '';
+        const bValue = b[sortField] || '';
+        
+        // For dates, we need special handling
+        if (sortField === 'dateCreated') {
+          const aDate = aValue ? new Date(aValue).getTime() : 0;
+          const bDate = bValue ? new Date(bValue).getTime() : 0;
+          
+          return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+        }
       
-      // For strings, we do a localeCompare
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        // For strings, we do a localeCompare
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortDirection === 'asc' 
+            ? aValue.localeCompare(bValue) 
+            : bValue.localeCompare(aValue);
+        }
+      
+        // Default case
         return sortDirection === 'asc' 
-          ? aValue.localeCompare(bValue) 
-          : bValue.localeCompare(aValue);
-      }
-      
-      // Default case
-      return sortDirection === 'asc' 
-        ? (aValue > bValue ? 1 : -1) 
-        : (bValue > aValue ? 1 : -1);
-    });
+          ? (aValue > bValue ? 1 : -1) 
+          : (bValue > aValue ? 1 : -1);
+      });
     
-    setFilteredRecipes(filtered);
+      // Check if the filtered result is different before updating state
+      const currentFiltered = JSON.stringify(filteredRecipes);
+      const newFiltered = JSON.stringify(filtered);
+      if (currentFiltered !== newFiltered) {
+        setFilteredRecipes(filtered);
+      }
+    }
   }, [searchTerm, savedRecipes, sortField, sortDirection]);
 
   // View a recipe
-  const handleViewRecipe = (recipe: any) => {
+  const handleViewRecipe = useCallback((recipe: any) => {
     setCurrentRecipe(JSON.stringify(recipe));
     router.push('/recipe');
-  };
+  }, [setCurrentRecipe, router]);
 
   // Delete a recipe
-  const handleDeleteRecipe = async (recipe: any) => {
+  const handleDeleteRecipe = useCallback(async (recipe: any) => {
     setIsDeleting(true);
     
     try {
@@ -180,7 +198,7 @@ export default function SavedRecipesPage() {
       setIsDeleting(false);
       setShowDeleteDialog(false);
     }
-  };
+  }, [deleteRecipeFromDb, toast, setShowDeleteDialog]);
 
   // Confirm delete recipe
   const confirmDeleteRecipe = (recipe: any, event: React.MouseEvent) => {
@@ -190,7 +208,7 @@ export default function SavedRecipesPage() {
   };
 
   // Toggle sort direction or change sort field
-  const handleSort = (field: string) => {
+  const handleSort = useCallback((field: string) => {
     if (field === sortField) {
       // Toggle direction
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -199,7 +217,7 @@ export default function SavedRecipesPage() {
       setSortField(field);
       setSortDirection('desc');
     }
-  };
+  }, [sortField, sortDirection]);
 
   // Get sort icon
   const getSortIcon = (field: string) => {
