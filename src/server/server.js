@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const session = require('express-session');
+const { csrfProtection, setCSRFToken } = require('./middleware/csrf');
 const app = express();
 const port = process.env.PORT || 3001;
 const query = require('./db');
@@ -10,6 +12,28 @@ const { createClient } = require('@supabase/supabase-js');
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Session configuration (must come before CSRF middleware)
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'development-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Set CSRF token for all requests
+app.use(setCSRFToken);
+
+// Apply CSRF protection to mutating routes
+app.use('/login', csrfProtection);
+app.use('/signup', csrfProtection);
+app.use('/reset-password', csrfProtection);
+app.use('/user/recipes', csrfProtection);
 
 // Middleware
 app.use(express.json());

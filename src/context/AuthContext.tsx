@@ -29,6 +29,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   socialLogin: (provider: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+
+  csrfToken: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,8 +40,32 @@ export const BACKEND_URL = clientConfig.apiUrl;
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
+
+  // Fetch CSRF token on initial load
+  useEffect(() => {
+    const fetchCSRFToken = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/csrf-token`, {
+          credentials: 'include' // Important for including cookies
+        });
+        
+        if (response.ok) {
+          // Get token from header
+          const token = response.headers.get('X-CSRF-Token');
+          if (token) {
+            setCsrfToken(token);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch CSRF token:', error);
+      }
+    };
+    
+    fetchCSRFToken();
+  }, []);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -154,6 +180,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken || ''
         },
         body: JSON.stringify({ email, password }),
         credentials: 'include',
@@ -206,6 +233,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken || ''
         },
         body: JSON.stringify({ email, password }),
         signal: AbortSignal.timeout(15000), // 15 second timeout
@@ -261,7 +289,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${tokenString}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken || ''
           },
           credentials: 'include', // Include cookies if needed
           signal: AbortSignal.timeout(8000), // 8 second timeout
@@ -319,6 +348,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken || ''
         },
         body: JSON.stringify({ email }),
         signal: AbortSignal.timeout(10000), // 10 second timeout
@@ -354,6 +384,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <AuthContext.Provider
       value={{
+        csrfToken,
         session,
         isLoading,
         isAuthenticated: !!session,
