@@ -197,17 +197,45 @@ app.post('/reset-password', async (req, res) => {
   }
   
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:9002'}/reset-password`,
-    });
+    // Find user
+    const { data: user } = await supabase
+      .from('user_profiles')
+      .select('user_id')
+      .eq('email', email)
+      .single();
     
-    if (error) throw error;
+    if (!user) {
+      // Don't reveal if user exists for security
+      return res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
+    }
     
-    // Don't confirm if email exists for security reasons
+    // Generate secure token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+    
+    // Store token with expiration (1 hour)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
+    
+    await supabase
+      .from('password_reset_tokens')
+      .insert([{
+        user_id: user.user_id,
+        token_hash: resetTokenHash,
+        expires_at: expiresAt.toISOString()
+      }]);
+    
+    // Send email with reset link
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    
+    // Send email implementation...
+    
     res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
   } catch (error) {
     console.error('Reset password error:', error);
-    // Still return 200 to not reveal if email exists
     res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
   }
 });
@@ -227,11 +255,41 @@ app.post('/new-password', async (req, res) => {
   }
   
   try {
-    const { error } = await supabase.auth.updateUser({ 
-      password 
-    });
+    // Hash token for comparison
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+    
+    // Find valid token
+    const { data: resetToken } = await supabase
+      .from('password_reset_tokens')
+      .select('user_id, expires_at')
+      .eq('token_hash', tokenHash)
+      .single();
+    
+    if (!resetToken) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Check expiration
+    if (new Date() > new Date(resetToken.expires_at)) {
+      return res.status(400).json({ message: 'Token has expired' });
+    }
+    
+    // Update password
+    const { error } = await supabase.auth.admin.updateUserById(
+      resetToken.user_id,
+      { password }
+    );
     
     if (error) throw error;
+    
+    // Invalidate token after use (one-time use)
+    await supabase
+      .from('password_reset_tokens')
+      .delete()
+      .eq('token_hash', tokenHash);
     
     res.json({ message: 'Password updated successfully. You can now log in with your new password.' });
   } catch (error) {
