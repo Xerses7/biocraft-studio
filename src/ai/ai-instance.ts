@@ -1,12 +1,13 @@
 import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
+import { serverConfig } from '@/server/config';
 
 export const ai = genkit({
   promptDir: './prompts',
   plugins: [
     googleAI({
-      apiKey: process.env.GOOGLE_GENAI_API_KEY,
+      apiKey: serverConfig.ai.googleApiKey,
     }),
   ],
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-2.5-flash',
 });

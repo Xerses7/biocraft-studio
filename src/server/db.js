@@ -1,9 +1,9 @@
 const { Pool } = require('pg');
 
 const config = {
-  user: 'postgres.njgikdcfsdowqzexhytv',
-  host: 'aws-0-eu-west-3.pooler.supabase.com',
-  database: 'biocraft_db',
+  user: process.env.SUPABASE_DB_USER,
+  host: process.env.SUPABASE_DB_HOST,
+  database: process.env.SUPABASE_DB_NAME,
   password: process.env.SUPABASE_DB_PASSWORD,
   port: 5432,
   // Adjust pool size as needed
