@@ -1,37 +1,25 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 // You can place this component in a development-only route like /dev/test-endpoints
 export default function ServerEndpointTester() {
   const [backendUrl, setBackendUrl] = useState(process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001');
-  const [token, setToken] = useState('');
   const [endpoint, setEndpoint] = useState('/signout');
   const [method, setMethod] = useState('POST');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<number | null>(null);
-
-  // Load token from localStorage if available
-  React.useEffect(() => {
-    try {
-      const storedAuth = localStorage.getItem('biocraft_auth');
-      if (storedAuth) {
-        const parsedAuth = JSON.parse(storedAuth);
-        if (parsedAuth.token) {
-          setToken(parsedAuth.token);
-        }
-      }
-    } catch (e) {
-      console.error('Error loading token from localStorage:', e);
-    }
-  }, []);
+  const { csrfToken } = useAuth();
 
   const testEndpoint = async () => {
     setIsLoading(true);
@@ -47,14 +35,15 @@ export default function ServerEndpointTester() {
         'Content-Type': 'application/json',
       };
       
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      // Include CSRF token for non-GET requests
+      if (method !== 'GET' && csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
       }
       
       const options: RequestInit = {
         method,
         headers,
-        credentials: 'include',
+        credentials: 'include', // Important to include cookies
       };
       
       const response = await fetch(url, options);
@@ -90,6 +79,7 @@ export default function ServerEndpointTester() {
       // Test basic connectivity to the server root endpoint
       const response = await fetch(backendUrl, {
         method: 'GET',
+        credentials: 'include', // Include cookies
         signal: AbortSignal.timeout(5000),
       });
       
@@ -178,14 +168,15 @@ export default function ServerEndpointTester() {
                 </div>
                 
                 <div className="space-y-2">
-                  <label htmlFor="token" className="text-sm font-medium">
-                    Auth Token
+                  <label htmlFor="csrfToken" className="text-sm font-medium">
+                    CSRF Token
                   </label>
                   <Input
-                    id="token"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder="JWT token"
+                    id="csrfToken"
+                    value={csrfToken || ''}
+                    readOnly
+                    placeholder="CSRF token will be included automatically"
+                    className="bg-gray-100"
                   />
                 </div>
               </div>

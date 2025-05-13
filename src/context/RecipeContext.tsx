@@ -1,11 +1,9 @@
 'use client';
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-
-// Backend URL
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+import { useAuth } from '@/context/AuthContext';
 
 interface RecipeContextType {
   currentRecipe: string | null;
@@ -20,11 +18,14 @@ interface RecipeContextType {
 
 const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
 
+// Backend URL
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+
 export const RecipeProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentRecipe, setCurrentRecipe] = useState<string | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
   const [isLoadingRecipes, setIsLoadingRecipes] = useState<boolean>(false);
-  const { session, isAuthenticated } = useAuth();
+  const { session, isAuthenticated, csrfToken } = useAuth();
   const { toast } = useToast();
 
   // Load recipes from DB when user is authenticated
@@ -39,7 +40,7 @@ export const RecipeProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Function to save recipe to database
   const saveRecipeToDb = async (recipe: any): Promise<boolean> => {
-    if (!isAuthenticated || !session?.access_token) {
+    if (!isAuthenticated) {
       toast({
         variant: "destructive",
         title: "Authentication Required",
@@ -52,13 +53,13 @@ export const RecipeProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await fetch(`${BACKEND_URL}/user/recipes`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken || ''
         },
         body: JSON.stringify({
           recipe: typeof recipe === 'string' ? recipe : JSON.stringify(recipe)
         }),
-        credentials: 'include',
+        credentials: 'include', // Include cookies for authentication
       });
 
       if (!response.ok) {
@@ -92,7 +93,7 @@ export const RecipeProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Function to load recipes from database
   const loadRecipesFromDb = async (): Promise<void> => {
-    if (!isAuthenticated || !session?.access_token) {
+    if (!isAuthenticated) {
       return;
     }
 
@@ -102,10 +103,9 @@ export const RecipeProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await fetch(`${BACKEND_URL}/user/recipes`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
+        credentials: 'include', // Include cookies for authentication
       });
 
       if (!response.ok) {
@@ -129,7 +129,7 @@ export const RecipeProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Function to delete recipe from database
   const deleteRecipeFromDb = async (recipeId: string): Promise<boolean> => {
-    if (!isAuthenticated || !session?.access_token) {
+    if (!isAuthenticated) {
       toast({
         variant: "destructive",
         title: "Authentication Required",
@@ -142,10 +142,10 @@ export const RecipeProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await fetch(`${BACKEND_URL}/user/recipes/${recipeId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken || ''
         },
-        credentials: 'include',
+        credentials: 'include', // Include cookies for authentication
       });
 
       if (!response.ok) {

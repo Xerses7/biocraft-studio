@@ -1,473 +1,3 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const session = require('express-session');
-const { csrfProtection, setCSRFToken } = require('./middleware/csrf');
-const app = express();
-const port = process.env.PORT || 3001;
-const query = require('./db');
-const { createClient } = require('@supabase/supabase-js');
-
-// Supabase Client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Session configuration (must come before CSRF middleware)
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'development-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
-
-// Set CSRF token for all requests
-app.use(setCSRFToken);
-
-// Apply CSRF protection to mutating routes
-app.use('/login', csrfProtection);
-app.use('/signup', csrfProtection);
-app.use('/reset-password', csrfProtection);
-app.use('/user/recipes', csrfProtection);
-
-// Middleware
-app.use(express.json());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:9002',
-  credentials: true
-}));
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    message: 'Something broke!',
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
-  });
-});
-
-// Password validation helper function
-const validatePassword = (password) => {
-  if (!password) {
-    return { valid: false, message: "Password is required" };
-  }
-  
-  if (password.length < 6) {
-    return { valid: false, message: "Password must be at least 6 characters long" };
-  }
-  
-  // Check additional security rules
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumbers = /\d/.test(password);
-  
-  if (!(hasUpperCase && hasLowerCase && hasNumbers)) {
-    return { 
-      valid: false, 
-      message: "Password must include at least one uppercase letter, one lowercase letter, and one number" 
-    };
-  }
-  
-  return { valid: true, message: "" };
-};
-
-// Auth routes
-app.post('/signup', async (req, res, next) => {
-  const { email, password, confirmPassword } = req.body;
-  
-  // Validate required fields
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
-  }
-  
-  // Server-side email validation
-  if (!email.includes('@')) {
-    return res.status(400).json({ message: 'Invalid email format' });
-  }
-  
-  // Server-side password validation
-  const passwordValidation = validatePassword(password);
-  if (!passwordValidation.valid) {
-    return res.status(400).json({ message: passwordValidation.message });
-  }
-  
-  // Check if passwords match (if confirmPassword is provided)
-  if (confirmPassword !== undefined && password !== confirmPassword) {
-    return res.status(400).json({ message: 'Passwords do not match' });
-  }
-  
-  try {
-    // Check if user already exists
-    const { data: existingUsers } = await supabase
-      .from('user_profiles')
-      .select('email')
-      .eq('email', email)
-      .limit(1);
-      
-    if (existingUsers && existingUsers.length > 0) {
-      return res.status(409).json({ message: 'An account with this email already exists' });
-    }
-    
-    // Register user with Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${process.env.FRONTEND_URL || 'http://localhost:9002'}/auth/callback`,
-      },
-    });
-    
-    if (error) throw error;
-    
-    // Create user profile in custom table
-    if (data.user) {
-      await supabase
-        .from('user_profiles')
-        .insert([
-          { 
-            user_id: data.user.id, 
-            email: email,
-            created_at: new Date(),
-            updated_at: new Date()
-          }
-        ]);
-    }
-    
-    res.status(201).json({ 
-      message: 'User created. Please verify your email.',
-      user: data.user
-    });
-  } catch (error) {
-    console.error('Signup error:', error);
-    res.status(error.status || 400).json({ 
-      message: error.message || 'Error creating user account' 
-    });
-  }
-});
-
-app.post('/login', async (req, res, next) => {
-  const { email, password } = req.body;
-  
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
-  }
-  
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) throw error;
-
-    // Update last login time
-    if (data.user) {
-      await supabase
-        .from('user_profiles')
-        .update({ 
-          last_login: new Date(),
-          updated_at: new Date()
-        })
-        .match({ user_id: data.user.id });
-    }
-
-    res.json({ 
-      message: 'Signed in successfully',
-      session: data.session
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(error.status || 401).json({ 
-      message: error.message || 'Invalid login credentials' 
-    });
-  }
-});
-
-// Reset password endpoint
-app.post('/reset-password', async (req, res) => {
-  const { email } = req.body;
-  
-  if (!email) {
-    return res.status(400).json({ message: 'Email is required' });
-  }
-  
-  try {
-    // Find user
-    const { data: user } = await supabase
-      .from('user_profiles')
-      .select('user_id')
-      .eq('email', email)
-      .single();
-    
-    if (!user) {
-      // Don't reveal if user exists for security
-      return res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
-    }
-    
-    // Generate secure token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenHash = crypto
-      .createHash('sha256')
-      .update(resetToken)
-      .digest('hex');
-    
-    // Store token with expiration (1 hour)
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1);
-    
-    await supabase
-      .from('password_reset_tokens')
-      .insert([{
-        user_id: user.user_id,
-        token_hash: resetTokenHash,
-        expires_at: expiresAt.toISOString()
-      }]);
-    
-    // Send email with reset link
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-    
-    // Send email implementation...
-    
-    res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
-  } catch (error) {
-    console.error('Reset password error:', error);
-    res.json({ message: 'If an account exists with this email, a password reset link has been sent.' });
-  }
-});
-
-// New password endpoint after reset
-app.post('/new-password', async (req, res) => {
-  const { password, token } = req.body;
-  
-  if (!password || !token) {
-    return res.status(400).json({ message: 'Password and token are required' });
-  }
-  
-  // Validate password
-  const passwordValidation = validatePassword(password);
-  if (!passwordValidation.valid) {
-    return res.status(400).json({ message: passwordValidation.message });
-  }
-  
-  try {
-    // Hash token for comparison
-    const tokenHash = crypto
-      .createHash('sha256')
-      .update(token)
-      .digest('hex');
-    
-    // Find valid token
-    const { data: resetToken } = await supabase
-      .from('password_reset_tokens')
-      .select('user_id, expires_at')
-      .eq('token_hash', tokenHash)
-      .single();
-    
-    if (!resetToken) {
-      return res.status(400).json({ message: 'Invalid or expired token' });
-    }
-    
-    // Check expiration
-    if (new Date() > new Date(resetToken.expires_at)) {
-      return res.status(400).json({ message: 'Token has expired' });
-    }
-    
-    // Update password
-    const { error } = await supabase.auth.admin.updateUserById(
-      resetToken.user_id,
-      { password }
-    );
-    
-    if (error) throw error;
-    
-    // Invalidate token after use (one-time use)
-    await supabase
-      .from('password_reset_tokens')
-      .delete()
-      .eq('token_hash', tokenHash);
-    
-    res.json({ message: 'Password updated successfully. You can now log in with your new password.' });
-  } catch (error) {
-    console.error('New password error:', error);
-    res.status(error.status || 400).json({ 
-      message: error.message || 'Error updating password' 
-    });
-  }
-});
-
-// User profile endpoints
-app.get('/user/profile', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  
-  const token = authHeader.split(' ')[1];
-  
-  try {
-    // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError) throw userError;
-    
-    // Get profile from database
-    const { data: profileData, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('user_id', userData.user.id)
-      .single();
-    
-    if (profileError && profileError.code !== 'PGRST116') {
-      // PGRST116 is the "no rows returned" error, which we handle below
-      throw profileError;
-    }
-    
-    // If no profile exists yet, create one
-    if (!profileData) {
-      const newProfile = {
-        user_id: userData.user.id,
-        email: userData.user.email,
-        created_at: new Date(),
-        updated_at: new Date()
-      };
-      
-      const { data: newProfileData, error: newProfileError } = await supabase
-        .from('user_profiles')
-        .insert([newProfile])
-        .select('*')
-        .single();
-      
-      if (newProfileError) throw newProfileError;
-      
-      return res.json({ profile: newProfileData });
-    }
-    
-    res.json({ profile: profileData });
-  } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(error.status || 401).json({ 
-      message: error.message || 'Error retrieving user profile' 
-    });
-  }
-});
-
-// Update user profile
-app.patch('/user/profile', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  
-  const token = authHeader.split(' ')[1];
-  const updateData = req.body;
-  
-  // Remove fields that shouldn't be updated directly
-  delete updateData.user_id;
-  delete updateData.email;
-  delete updateData.created_at;
-  
-  // Add updated timestamp
-  updateData.updated_at = new Date();
-  
-  try {
-    // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError) throw userError;
-    
-    // Update profile
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('user_profiles')
-      .update(updateData)
-      .match({ user_id: userData.user.id })
-      .select('*')
-      .single();
-    
-    if (updateError) throw updateError;
-    
-    res.json({ 
-      message: 'Profile updated successfully',
-      profile: updatedProfile
-    });
-  } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(error.status || 400).json({ 
-      message: error.message || 'Error updating user profile' 
-    });
-  }
-});
-
-// Change password
-app.post('/user/change-password', async (req, res) => {
-  const { current_password, new_password } = req.body;
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  
-  if (!current_password || !new_password) {
-    return res.status(400).json({ message: 'Current password and new password are required' });
-  }
-  
-  // Validate new password
-  const passwordValidation = validatePassword(new_password);
-  if (!passwordValidation.valid) {
-    return res.status(400).json({ message: passwordValidation.message });
-  }
-  
-  const token = authHeader.split(' ')[1];
-  
-  try {
-    // First, verify the current password by attempting to sign in
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError) throw userError;
-    
-    const email = userData.user.email;
-    
-    // Verify current password
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password: current_password,
-    });
-    
-    if (signInError) {
-      return res.status(401).json({ message: 'Current password is incorrect' });
-    }
-    
-    // Update the password
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: new_password,
-    });
-    
-    if (updateError) throw updateError;
-    
-    res.json({ message: 'Password changed successfully' });
-  } catch (error) {
-    console.error('Change password error:', error);
-    res.status(error.status || 400).json({ 
-      message: error.message || 'Error changing password' 
-    });
-  }
-});
-
-// Social login redirects
-app.get('/auth/google', (req, res) => {
-  const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:9002'}/auth/callback`;
-  const authUrl = supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: redirectUrl
-    }
-  });
-  res.redirect(authUrl);
-});
-
 app.get('/auth/github', (req, res) => {
   const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:9002'}/auth/callback`;
   const authUrl = supabase.auth.signInWithOAuth({
@@ -480,24 +10,63 @@ app.get('/auth/github', (req, res) => {
 });
 
 // Auth callback processing
-app.get('/auth/callback', (req, res) => {
-  // This is handled by the frontend
-  res.redirect('/');
+app.get('/auth/callback', async (req, res) => {
+  // This endpoint handles the OAuth callback and sets session cookies
+  const { code } = req.query;
+  
+  if (!code) {
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:9002'}/auth-error?error=missing_code`);
+  }
+  
+  try {
+    // Exchange code for session
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    
+    if (error) throw error;
+    
+    // Set secure HttpOnly cookie with session data
+    if (data && data.session) {
+      setAuthCookie(res, data.session);
+    }
+    
+    // Redirect to the frontend
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:9002'}`);
+  } catch (error) {
+    console.error('Auth callback error:', error);
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:9002'}/auth-error?error=${encodeURIComponent(error.message)}`);
+  }
 });
 
 // Check/refresh session
 app.get('/user', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  
-  const token = authHeader.split(' ')[1];
-  
   try {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error) throw error;
+    // Get session data from cookie
+    const sessionCookie = req.cookies.auth_session;
+    
+    if (!sessionCookie) {
+      return res.status(401).json({ message: 'No active session' });
+    }
+    
+    let sessionData;
+    try {
+      sessionData = JSON.parse(sessionCookie);
+    } catch (e) {
+      clearAuthCookies(res);
+      return res.status(401).json({ message: 'Invalid session format' });
+    }
+    
+    if (!sessionData || !sessionData.access_token) {
+      clearAuthCookies(res);
+      return res.status(401).json({ message: 'Invalid session data' });
+    }
+    
+    // Verify token with Supabase
+    const { data, error } = await supabase.auth.getUser(sessionData.access_token);
+    
+    if (error) {
+      clearAuthCookies(res);
+      throw error;
+    }
     
     res.json({ 
       message: 'User retrieved',
@@ -511,55 +80,80 @@ app.get('/user', async (req, res) => {
   }
 });
 
-
 app.post('/signout', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'This endpoint requires a Bearer token' });
-  }
-  
   try {
-    // Extract the token from the Authorization header
-    const token = authHeader.split(' ')[1];
+    // Get session data from cookie
+    const sessionCookie = req.cookies.auth_session;
     
-    // Simply sign out without trying to pass the token to Supabase
-    // The signOut method doesn't need a token parameter
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
-      console.error('Supabase signout error:', error);
-      throw error;
+    if (sessionCookie) {
+      try {
+        const sessionData = JSON.parse(sessionCookie);
+        
+        if (sessionData && sessionData.access_token) {
+          // Notify Supabase about the logout
+          await supabase.auth.signOut({ 
+            scope: 'local' // Only sign out from this device
+          });
+        }
+      } catch (e) {
+        console.error('Error parsing session cookie during logout:', e);
+      }
     }
+    
+    // Always clear cookies regardless of Supabase response
+    clearAuthCookies(res);
     
     // Return success message
     res.json({ message: 'Signed out successfully' });
   } catch (error) {
     console.error('Signout error:', error);
+    
+    // Still clear cookies even if there was an error with Supabase
+    clearAuthCookies(res);
+    
     res.status(error.status || 500).json({ 
       message: error.message || 'Error signing out' 
     });
   }
 });
 
+// CSRF token endpoint
+app.get('/csrf-token', (req, res) => {
+  res.status(200).json({ message: 'CSRF token set' });
+});
+
 // Endpoint to save a recipe
 app.post('/user/recipes', async (req, res) => {
-  const authHeader = req.headers.authorization;
   const { recipe } = req.body;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
+  // Get session data from cookie
+  const sessionCookie = req.cookies.auth_session;
+  
+  if (!sessionCookie) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+  
+  let sessionData;
+  try {
+    sessionData = JSON.parse(sessionCookie);
+  } catch (e) {
+    return res.status(401).json({ message: 'Invalid session format' });
+  }
+  
+  if (!sessionData || !sessionData.access_token) {
+    return res.status(401).json({ message: 'Invalid session data' });
   }
   
   if (!recipe) {
     return res.status(400).json({ message: 'No recipe data provided' });
   }
   
-  const token = authHeader.split(' ')[1];
-  
   try {
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const { data: userData, error: userError } = await supabase.auth.getUser(
+      sessionData.access_token
+    );
+    
     if (userError) throw userError;
     
     // Parse recipe if it's a string
@@ -604,17 +198,30 @@ app.post('/user/recipes', async (req, res) => {
 
 // Endpoint to get user's saved recipes
 app.get('/user/recipes', async (req, res) => {
-  const authHeader = req.headers.authorization;
+  // Get session data from cookie
+  const sessionCookie = req.cookies.auth_session;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
+  if (!sessionCookie) {
+    return res.status(401).json({ message: 'Authentication required' });
   }
   
-  const token = authHeader.split(' ')[1];
+  let sessionData;
+  try {
+    sessionData = JSON.parse(sessionCookie);
+  } catch (e) {
+    return res.status(401).json({ message: 'Invalid session format' });
+  }
+  
+  if (!sessionData || !sessionData.access_token) {
+    return res.status(401).json({ message: 'Invalid session data' });
+  }
   
   try {
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const { data: userData, error: userError } = await supabase.auth.getUser(
+      sessionData.access_token
+    );
+    
     if (userError) throw userError;
     
     // Get recipes from database
@@ -643,22 +250,36 @@ app.get('/user/recipes', async (req, res) => {
 
 // Endpoint to delete a recipe
 app.delete('/user/recipes/:recipeId', async (req, res) => {
-  const authHeader = req.headers.authorization;
   const { recipeId } = req.params;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
+  // Get session data from cookie
+  const sessionCookie = req.cookies.auth_session;
+  
+  if (!sessionCookie) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+  
+  let sessionData;
+  try {
+    sessionData = JSON.parse(sessionCookie);
+  } catch (e) {
+    return res.status(401).json({ message: 'Invalid session format' });
+  }
+  
+  if (!sessionData || !sessionData.access_token) {
+    return res.status(401).json({ message: 'Invalid session data' });
   }
   
   if (!recipeId) {
     return res.status(400).json({ message: 'Recipe ID is required' });
   }
   
-  const token = authHeader.split(' ')[1];
-  
   try {
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const { data: userData, error: userError } = await supabase.auth.getUser(
+      sessionData.access_token
+    );
+    
     if (userError) throw userError;
     
     // Delete recipe from database
@@ -682,7 +303,6 @@ app.delete('/user/recipes/:recipeId', async (req, res) => {
   }
 });
 
-
 // Health check endpoint
 app.get('/', async (req, res) => {
   try {
@@ -702,6 +322,34 @@ app.get('/', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Add security headers middleware for all responses
+app.use((req, res, next) => {
+  // Security headers to prevent various attacks
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
+  
+  // Content Security Policy to prevent XSS
+  const cspDirectives = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "frame-ancestors 'none'"
+  ];
+  
+  // Only set CSP in production to avoid development issues
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Content-Security-Policy', cspDirectives.join('; '));
+  }
+  
+  next();
 });
 
 app.listen(port, () => {

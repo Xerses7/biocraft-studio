@@ -18,7 +18,10 @@ function csrfProtection(req, res, next) {
 
   // Verify CSRF token
   if (!clientCSRFToken || !sessionCSRFToken || clientCSRFToken !== sessionCSRFToken) {
-    return res.status(403).json({ message: 'CSRF token validation failed' });
+    return res.status(403).json({ 
+      message: 'CSRF token validation failed',
+      error: 'Invalid or missing CSRF token'
+    });
   }
 
   next();

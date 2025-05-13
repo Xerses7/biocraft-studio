@@ -29,7 +29,6 @@ interface AuthContextType {
   logout: () => Promise<void>;
   socialLogin: (provider: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-
   csrfToken: string | null;
 }
 
@@ -67,110 +66,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     fetchCSRFToken();
   }, []);
 
+  // Get session from cookie-based auth
   useEffect(() => {
     const initAuth = async () => {
-      // Check for stored session
-      let storedAuth = null;
-      
       try {
-        storedAuth = localStorage.getItem('biocraft_auth');
+        // Directly get session from backend using HttpOnly cookie
+        const response = await fetch(`${BACKEND_URL}/user/session`, {
+          method: 'GET',
+          credentials: 'include', // Important for including cookies
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: AbortSignal.timeout(8000), // 8 second timeout
+        });
+        
+        if (!response.ok) {
+          // If session is invalid or expired, that's fine, user is just not logged in
+          setIsLoading(false);
+          return;
+        }
+        
+        const data = await response.json();
+        
+        if (data && data.session) {
+          setSession(data.session);
+        }
       } catch (error) {
-        console.error('Error accessing localStorage:', error);
+        console.error('Error checking authentication session:', error);
+        // Continue without session in case of error
+      } finally {
         setIsLoading(false);
-        return;
       }
-      
-      if (!storedAuth) {
-        setIsLoading(false);
-        return;
-      }
-      
-      try {
-        const parsedAuth = JSON.parse(storedAuth);
-        
-        // Check if token is expired (if timestamp exists)
-        if (parsedAuth.timestamp) {
-          const now = Date.now();
-          const tokenAge = now - parsedAuth.timestamp;
-          const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-          
-          if (tokenAge > maxAge) {
-            console.log('Stored token expired');
-            localStorage.removeItem('biocraft_auth');
-            setIsLoading(false);
-            return;
-          }
-        }
-        
-        // Validate stored session token against backend
-        try {
-          const response = await fetch(`${BACKEND_URL}/user`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${parsedAuth.token}`,
-            },
-            // Adding timeout to prevent long hanging requests
-            signal: AbortSignal.timeout(10000), // 10 second timeout
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            
-            // Reconstruct session from stored token and user data
-            const reconstructedSession = {
-              access_token: parsedAuth.token,
-              token_type: 'bearer',
-              expires_in: 3600, // Default expiration
-              expires_at: parsedAuth.timestamp + (3600 * 1000),
-              refresh_token: parsedAuth.refresh_token || '',
-              user: data.user
-            };
-            
-            setSession(reconstructedSession);
-          } else {
-            // If token is invalid, remove from storage
-            console.log('Token validation failed with status:', response.status);
-            localStorage.removeItem('biocraft_auth');
-          }
-        } catch (fetchError) {
-          // Handle network errors during token validation
-          console.error('Network error during token validation:', fetchError);
-          
-          // Create a session from stored data, but mark it as potentially invalid
-          // This allows the app to work offline with limited functionality
-          if (parsedAuth.token) {
-            const offlineSession = {
-              access_token: parsedAuth.token,
-              token_type: 'bearer',
-              expires_in: 3600,
-              expires_at: parsedAuth.timestamp + (3600 * 1000),
-              refresh_token: parsedAuth.refresh_token || '',
-              user: { 
-                id: 'offline',
-                email: 'offline@example.com',
-                role: 'user'
-              }
-            };
-            setSession(offlineSession);
-            
-            // Let the user know they're working in offline mode
-            toast({
-              title: 'Network Error',
-              description: 'Working in offline mode. Some features may be limited.',
-              variant: 'destructive',
-            });
-          }
-        }
-      } catch (parseError) {
-        console.error('Error parsing stored auth:', parseError);
-        localStorage.removeItem('biocraft_auth');
-      }
-      
-      setIsLoading(false);
     };
     
     initAuth();
-  }, [toast]);
+  }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
@@ -183,7 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           'X-CSRF-Token': csrfToken || ''
         },
         body: JSON.stringify({ email, password }),
-        credentials: 'include',
+        credentials: 'include', // Important for receiving the HttpOnly cookie
         signal: AbortSignal.timeout(15000), // 15 second timeout
       });
       
@@ -193,14 +123,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error(data.message || 'Login failed');
       }
       
+      // Set session state (user info is included in the response)
       setSession(data.session);
-      
-      // Store session in localStorage
-      localStorage.setItem('biocraft_auth', JSON.stringify({
-        token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        timestamp: Date.now(),
-      }));
       
       toast({
         title: 'Welcome back!',
@@ -236,6 +160,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           'X-CSRF-Token': csrfToken || ''
         },
         body: JSON.stringify({ email, password }),
+        credentials: 'include', // Important even for signup
         signal: AbortSignal.timeout(15000), // 15 second timeout
       });
       
@@ -271,64 +196,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     setIsLoading(true);
     
-    // First, clean up local state regardless of API call result
-    console.log('Starting logout process - clearing local state');
-    setSession(null);
-    localStorage.removeItem('biocraft_auth');
-    
-    // Then attempt to communicate with the backend, but don't block on it
-    if (session?.access_token) {
-      const signoutUrl = `${BACKEND_URL}/signout`;
-      console.log(`Attempting to notify backend at: ${signoutUrl}`);
+    try {
+      // Call backend to clear session cookie
+      const response = await fetch(`${BACKEND_URL}/signout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken || ''
+        },
+        credentials: 'include', // Important for including cookies
+        signal: AbortSignal.timeout(8000), // 8 second timeout
+      });
       
-      try {
-        // Ensure we're sending the token as a string
-        const tokenString = String(session.access_token).trim();
-        
-        const response = await fetch(signoutUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${tokenString}`,
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken || ''
-          },
-          credentials: 'include', // Include cookies if needed
-          signal: AbortSignal.timeout(8000), // 8 second timeout
-        });
-        
-        if (response.ok) {
-          console.log('Backend signout successful:', response.status);
-        } else {
-          console.error('Backend signout returned error status:', response.status);
-          try {
-            const errorData = await response.json();
-            console.error('Error details:', errorData);
-          } catch (e) {
-            console.error('Could not parse error response as JSON');
-          }
-        }
-      } catch (error) {
-        console.error('Backend signout notification failed with error:', error);
+      if (!response.ok) {
+        console.error('Logout API error:', response.status);
       }
-    } else {
-      console.log('No active session token found, skipping backend notification');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    } finally {
+      // Always clear local state regardless of API response
+      setSession(null);
+      
+      toast({
+        title: 'Signed out',
+        description: 'You have been signed out successfully.',
+      });
+      
+      router.push('/');
+      setIsLoading(false);
     }
-    
-    // Show success message and redirect
-    toast({
-      title: 'Signed out',
-      description: 'You have been signed out successfully.',
-    });
-    
-    router.push('/');
-    setIsLoading(false);
-    console.log('Logout process completed');
   };
-  
 
   const socialLogin = async (provider: string) => {
     try {
-      // For social login, we're redirecting to the backend, so no need for timeout
       window.location.href = `${BACKEND_URL}/auth/${provider.toLowerCase()}`;
     } catch (error: any) {
       toast({
@@ -351,6 +251,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           'X-CSRF-Token': csrfToken || ''
         },
         body: JSON.stringify({ email }),
+        credentials: 'include',
         signal: AbortSignal.timeout(10000), // 10 second timeout
       });
       
