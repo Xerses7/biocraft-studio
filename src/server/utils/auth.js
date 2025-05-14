@@ -1,3 +1,5 @@
+'use strict';
+
 // src/server/utils/auth.js - Authentication utility functions
 const crypto = require('crypto');
 

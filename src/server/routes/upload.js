@@ -55,13 +55,13 @@ const upload = multer({
 });
 
 // Secure file upload endpoint
-router.post('/', authRequired, csrfProtection, upload.single('file'), async (req, res) => {
+router.post('/', authRequired, csrfProtection, upload.single('file'), function (req, res) {
   try {
     // SessionData should be available from authRequired middleware
     const sessionData = req.session.auth;
     
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = supabase.auth.getUser(
       sessionData.access_token
     );
     
@@ -85,7 +85,7 @@ router.post('/', authRequired, csrfProtection, upload.single('file'), async (req
     });
     
     // Store file metadata in database for the user
-    await supabase
+    supabase
       .from('user_files')
       .insert([{
         user_id: userData.user.id,
@@ -111,19 +111,19 @@ router.post('/', authRequired, csrfProtection, upload.single('file'), async (req
 });
 
 // Get uploaded files for user
-router.get('/files', authRequired, async (req, res) => {
+router.get('/files', authRequired, function(req, res) {
   try {
     const sessionData = req.session.auth;
     
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = supabase.auth.getUser(
       sessionData.access_token
     );
     
     if (userError) throw userError;
     
     // Get files from database
-    const { data: files, error: filesError } = await supabase
+    const { data: files, error: filesError } = supabase
       .from('user_files')
       .select('*')
       .eq('user_id', userData.user.id)
@@ -144,21 +144,21 @@ router.get('/files', authRequired, async (req, res) => {
 });
 
 // Download a specific file
-router.get('/files/:fileId', authRequired, async (req, res) => {
+router.get('/files/:fileId', authRequired, function(req, res) {
   const { fileId } = req.params;
   
   try {
     const sessionData = req.session.auth;
     
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = supabase.auth.getUser(
       sessionData.access_token
     );
     
     if (userError) throw userError;
     
     // Get file info from database
-    const { data: fileInfo, error: fileError } = await supabase
+    const { data: fileInfo, error: fileError } = supabase
       .from('user_files')
       .select('*')
       .eq('id', fileId)
@@ -192,21 +192,21 @@ router.get('/files/:fileId', authRequired, async (req, res) => {
 });
 
 // Delete a file
-router.delete('/files/:fileId', authRequired, csrfProtection, async (req, res) => {
+router.delete('/files/:fileId', authRequired, csrfProtection, function (req, res) {
   const { fileId } = req.params;
   
   try {
     const sessionData = req.session.auth;
     
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = supabase.auth.getUser(
       sessionData.access_token
     );
     
     if (userError) throw userError;
     
     // Get file info from database
-    const { data: fileInfo, error: fileError } = await supabase
+    const { data: fileInfo, error: fileError } = supabase
       .from('user_files')
       .select('*')
       .eq('id', fileId)
@@ -224,7 +224,7 @@ router.delete('/files/:fileId', authRequired, csrfProtection, async (req, res) =
     }
     
     // Delete file metadata from database
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = supabase
       .from('user_files')
       .delete()
       .eq('id', fileId)

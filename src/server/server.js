@@ -1,5 +1,10 @@
 // src/server/server.js - Main application entry point
-require('dotenv').config();
+// Load environment variables based on NODE_ENV
+require('dotenv').config({
+  path: process.env.NODE_ENV === 'production' 
+    ? '.env' 
+    : '.env.development'
+});
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
@@ -76,10 +81,10 @@ app.use('/api/upload', uploadRoutes);
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Health check endpoint
-app.get('/', async (req, res) => {
+app.get('/', function(req, res) {
   try {
     console.log("Connecting to database...");
-    const result = await query('SELECT NOW()');
+    const result = query('SELECT NOW()');
     res.json({
       status: 'healthy',
       message: 'BioCraft Studio Backend is running',

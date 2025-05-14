@@ -17,7 +17,7 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // User signup
-router.post('/signup', csrfProtection, async (req, res) => {
+router.post('/signup', csrfProtection, function(req, res){
   const { email, password, confirmPassword } = req.body;
   
   // Validate required fields
@@ -43,7 +43,7 @@ router.post('/signup', csrfProtection, async (req, res) => {
   
   try {
     // Check if user already exists
-    const { data: existingUsers } = await supabase
+    const { data: existingUsers } = supabase
       .from('user_profiles')
       .select('email')
       .eq('email', email)
@@ -54,7 +54,7 @@ router.post('/signup', csrfProtection, async (req, res) => {
     }
     
     // Register user with Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = supabase.auth.signUp({
       email,
       password,
       options: {
@@ -66,7 +66,7 @@ router.post('/signup', csrfProtection, async (req, res) => {
     
     // Create user profile in custom table
     if (data.user) {
-      await supabase
+      supabase
         .from('user_profiles')
         .insert([
           { 
@@ -91,7 +91,7 @@ router.post('/signup', csrfProtection, async (req, res) => {
 });
 
 // User login
-router.post('/login', csrfProtection, async (req, res) => {
+router.post('/login', csrfProtection, function(req, res) {
   const { email, password, remember = false } = req.body;
   
   if (!email || !password) {
@@ -99,7 +99,7 @@ router.post('/login', csrfProtection, async (req, res) => {
   }
   
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -108,7 +108,7 @@ router.post('/login', csrfProtection, async (req, res) => {
 
     // Update last login time
     if (data.user) {
-      await supabase
+      supabase
         .from('user_profiles')
         .update({ 
           last_login: new Date(),
@@ -137,7 +137,7 @@ router.post('/login', csrfProtection, async (req, res) => {
 });
 
 // User logout
-router.post('/signout', csrfProtection, async (req, res) => {
+router.post('/signout', csrfProtection, function(req, res) {
   try {
     // Get session data from cookie
     const sessionCookie = req.cookies.auth_session;
@@ -148,7 +148,7 @@ router.post('/signout', csrfProtection, async (req, res) => {
         
         if (sessionData && sessionData.access_token) {
           // Notify Supabase about the logout
-          await supabase.auth.signOut({ 
+          supabase.auth.signOut({ 
             scope: 'local' // Only sign out from this device
           });
         }
@@ -175,7 +175,7 @@ router.post('/signout', csrfProtection, async (req, res) => {
 });
 
 // Password reset request
-router.post('/reset-password', csrfProtection, async (req, res) => {
+router.post('/reset-password', csrfProtection, function(req, res){
   const { email } = req.body;
   
   if (!email) {
@@ -184,7 +184,7 @@ router.post('/reset-password', csrfProtection, async (req, res) => {
   
   try {
     // Find user
-    const { data: user } = await supabase
+    const { data: user } = supabase
       .from('user_profiles')
       .select('user_id')
       .eq('email', email)
@@ -203,7 +203,7 @@ router.post('/reset-password', csrfProtection, async (req, res) => {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
     
-    await supabase
+    supabase
       .from('password_reset_tokens')
       .insert([{
         user_id: user.user_id,
@@ -224,7 +224,7 @@ router.post('/reset-password', csrfProtection, async (req, res) => {
 });
 
 // Set new password after reset
-router.post('/new-password', csrfProtection, async (req, res) => {
+router.post('/new-password', csrfProtection, function(req, res) {
   const { password, token } = req.body;
   
   if (!password || !token) {
@@ -242,7 +242,7 @@ router.post('/new-password', csrfProtection, async (req, res) => {
     const tokenHash = hashToken(token);
     
     // Find valid token
-    const { data: resetToken } = await supabase
+    const { data: resetToken } = supabase
       .from('password_reset_tokens')
       .select('user_id, expires_at')
       .eq('token_hash', tokenHash)
@@ -258,7 +258,7 @@ router.post('/new-password', csrfProtection, async (req, res) => {
     }
     
     // Update password
-    const { error } = await supabase.auth.admin.updateUserById(
+    const { error } = supabase.auth.admin.updateUserById(
       resetToken.user_id,
       { password }
     );
@@ -266,7 +266,7 @@ router.post('/new-password', csrfProtection, async (req, res) => {
     if (error) throw error;
     
     // Invalidate token after use (one-time use)
-    await supabase
+    supabase
       .from('password_reset_tokens')
       .delete()
       .eq('token_hash', tokenHash);
@@ -281,7 +281,7 @@ router.post('/new-password', csrfProtection, async (req, res) => {
 });
 
 // Social login - Google
-router.get('/google', (req, res) => {
+router.get('/google', function(req, res) {
   const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:9002'}/auth/callback`;
   const authUrl = supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -293,7 +293,7 @@ router.get('/google', (req, res) => {
 });
 
 // Social login - GitHub
-router.get('/github', (req, res) => {
+router.get('/github', function(req, res) {
   const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:9002'}/auth/callback`;
   const authUrl = supabase.auth.signInWithOAuth({
     provider: 'github',
@@ -305,7 +305,7 @@ router.get('/github', (req, res) => {
 });
 
 // OAuth callback handler
-router.get('/callback', async (req, res) => {
+router.get('/callback', function(req, res) {
   // This endpoint handles the OAuth callback and sets session cookies
   const { code } = req.query;
   
@@ -315,7 +315,7 @@ router.get('/callback', async (req, res) => {
   
   try {
     // Exchange code for session
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = supabase.auth.exchangeCodeForSession(code);
     
     if (error) throw error;
     
@@ -333,7 +333,7 @@ router.get('/callback', async (req, res) => {
 });
 
 // Session refresh
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', function (req, res) {
   try {
     // Get refresh token from secure cookie
     const sessionCookie = req.cookies.auth_session;
@@ -356,7 +356,7 @@ router.post('/refresh', async (req, res) => {
     }
     
     // Attempt to refresh the session
-    const { data, error } = await supabase.auth.refreshSession({
+    const { data, error } = supabase.auth.refreshSession({
       refresh_token: sessionData.refresh_token
     });
     

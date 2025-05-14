@@ -11,19 +11,19 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Get all recipes for the user
-router.get('/', authRequired, async (req, res) => {
+router.get('/', authRequired, function(req, res) {
   try {
     const sessionData = req.session.auth;
     
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = supabase.auth.getUser(
       sessionData.access_token
     );
     
     if (userError) throw userError;
     
     // Get recipes from database
-    const { data: recipes, error: recipesError } = await supabase
+    const { data: recipes, error: recipesError } = supabase
       .from('saved_recipes')
       .select('*')
       .eq('user_id', userData.user.id)
@@ -47,7 +47,7 @@ router.get('/', authRequired, async (req, res) => {
 });
 
 // Save a new recipe
-router.post('/', authRequired, csrfProtection, async (req, res) => {
+router.post('/', authRequired, csrfProtection, function (req, res) {
   const { recipe } = req.body;
   const sessionData = req.session.auth;
   
@@ -57,7 +57,7 @@ router.post('/', authRequired, csrfProtection, async (req, res) => {
   
   try {
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = supabase.auth.getUser(
       sessionData.access_token
     );
     
@@ -76,7 +76,7 @@ router.post('/', authRequired, csrfProtection, async (req, res) => {
     }
     
     // Save recipe to database
-    const { data: savedRecipe, error: saveError } = await supabase
+    const { data: savedRecipe, error: saveError } = supabase
       .from('saved_recipes')
       .insert([{
         user_id: userData.user.id,
@@ -104,20 +104,20 @@ router.post('/', authRequired, csrfProtection, async (req, res) => {
 });
 
 // Get a specific recipe
-router.get('/:recipeId', authRequired, async (req, res) => {
+router.get('/:recipeId', authRequired, function (req, res) {
   const { recipeId } = req.params;
   const sessionData = req.session.auth;
   
   try {
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = supabase.auth.getUser(
       sessionData.access_token
     );
     
     if (userError) throw userError;
     
     // Get specific recipe from database
-    const { data: recipe, error: recipeError } = await supabase
+    const { data: recipe, error: recipeError } = supabase
       .from('saved_recipes')
       .select('*')
       .eq('id', recipeId)
@@ -143,7 +143,7 @@ router.get('/:recipeId', authRequired, async (req, res) => {
 });
 
 // Update a recipe
-router.put('/:recipeId', authRequired, csrfProtection, async (req, res) => {
+router.put('/:recipeId', authRequired, csrfProtection, function (req, res) {
   const { recipeId } = req.params;
   const { recipe } = req.body;
   const sessionData = req.session.auth;
@@ -154,7 +154,7 @@ router.put('/:recipeId', authRequired, csrfProtection, async (req, res) => {
   
   try {
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = supabase.auth.getUser(
       sessionData.access_token
     );
     
@@ -173,7 +173,7 @@ router.put('/:recipeId', authRequired, csrfProtection, async (req, res) => {
     }
     
     // Update recipe in database
-    const { data: updatedRecipe, error: updateError } = await supabase
+    const { data: updatedRecipe, error: updateError } = supabase
       .from('saved_recipes')
       .update({
         recipe_name: recipeData.recipeName || 'Unnamed Recipe',
@@ -207,7 +207,7 @@ router.put('/:recipeId', authRequired, csrfProtection, async (req, res) => {
 });
 
 // Delete a recipe
-router.delete('/:recipeId', authRequired, csrfProtection, async (req, res) => {
+router.delete('/:recipeId', authRequired, csrfProtection, function (req, res) {
   const { recipeId } = req.params;
   const sessionData = req.session.auth;
   
@@ -217,14 +217,14 @@ router.delete('/:recipeId', authRequired, csrfProtection, async (req, res) => {
   
   try {
     // Get user from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = supabase.auth.getUser(
       sessionData.access_token
     );
     
     if (userError) throw userError;
     
     // Delete recipe from database
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = supabase
       .from('saved_recipes')
       .delete()
       .eq('id', recipeId)
