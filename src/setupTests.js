@@ -1,5 +1,5 @@
-// src/setupTests.ts - File di configurazione per Jest
-import '@testing-library/jest-dom';
+// src/setupTests.js - File di configurazione per Jest
+require('@testing-library/jest-dom');
 
 // Mock per window.matchMedia (usato da hooks/use-mobile)
 Object.defineProperty(window, 'matchMedia', {
@@ -26,9 +26,7 @@ if (!global.AbortSignal.timeout) {
 
 // MockIntersectionObserver
 class MockIntersectionObserver {
-  callback: IntersectionObserverCallback;
-  
-  constructor(callback: IntersectionObserverCallback) {
+  constructor(callback) {
     this.callback = callback;
   }
   observe = jest.fn();
