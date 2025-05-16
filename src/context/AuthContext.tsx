@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const fetchCSRFToken = async () => {
       try {
-        const response = await fetch(`${BACKEND_URL}/csrf-token`, {
+        const response = await fetch(`${BACKEND_URL}/auth/csrf-token`, {
           credentials: 'include' // Important for including cookies
         });
         
