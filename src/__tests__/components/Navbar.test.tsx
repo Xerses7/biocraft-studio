@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Navbar } from '@/components/Navbar';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -77,7 +77,7 @@ describe('Navbar Component', () => {
       session: { 
         access_token: 'test-token',
         user: { id: 'user-1', email: 'test@example.com' } 
-      },\
+      },
       isAuthenticated: true,
       logout: mockLogout,
     });
